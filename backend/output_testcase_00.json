@@ -1,0 +1,893 @@
+[
+    {
+        "testcase_id": "M_org_query_1",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "F-状态过滤管理-enable参数为1时，接口应只返回启用状态组织",
+        "description": "测试enable=1时，只返回启用状态的子组织。设计原因：覆盖有效过滤场景的核心业务规则，确保接口正确处理启用状态过滤，符合需求点新增的enable字段功能。",
+        "testSteps": "1. 调用POST接口 /pmpp/v4/orgs/list-authority-org-by-org-id\n2. 设置Header: Authorization=有效token\n3. 设置Body参数: orgIds=[10000, 10001], enable=1",
+        "preconditions": "数据库中准备数据：orgId 10000有直接下级组织（id=20000 enable=1, id=20001 enable=0）；orgId 10001有直接下级组织（id=30000 enable=1）。",
+        "expectResult": "返回JSON响应：{\"10000\":[{\"id\":20000,\"enable\":1,...}], \"10001\":[{\"id\":30000,\"enable\":1,...}]}，所有子节点enable=1，无停用组织。"
+    },
+    {
+        "testcase_id": "M_org_query_2",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "F-状态过滤管理-enable参数为0时，接口应只返回停用状态组织",
+        "description": "测试enable=0时，只返回停用状态的子组织。设计原因：覆盖有效过滤场景的核心业务规则，确保接口正确处理停用状态过滤，符合需求点新增的enable字段功能。",
+        "testSteps": "1. 调用POST接口 /pmpp/v4/orgs/list-authority-org-by-org-id\n2. 设置Header: Authorization=有效token\n3. 设置Body参数: orgIds=[10000], enable=0",
+        "preconditions": "数据库中准备数据：orgId 10000有直接下级组织（id=20000 enable=0, id=20001 enable=1）。",
+        "expectResult": "返回JSON响应：{\"10000\":[{\"id\":20000,\"enable\":0,...}]}，所有子节点enable=0，无启用组织。"
+    },
+    {
+        "testcase_id": "M_org_query_3",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "F-状态过滤管理-enable参数为null时，接口应返回所有状态组织",
+        "description": "测试enable=null时，返回所有状态的子组织。设计原因：覆盖不过滤场景的核心业务规则，确保接口正确处理未指定enable时的默认行为，符合需求点描述。",
+        "testSteps": "1. 调用POST接口 /pmpp/v4/orgs/list-authority-org-by-org-id\n2. 设置Header: Authorization=有效token\n3. 设置Body参数: orgIds=[10000], enable=null",
+        "preconditions": "数据库中准备数据：orgId 10000有直接下级组织（id=20000 enable=1, id=20001 enable=0）。",
+        "expectResult": "返回JSON响应：{\"10000\":[{\"id\":20000,\"enable\":1,...}, {\"id\":20001,\"enable\":0,...}]}，包含启用和停用组织。"
+    },
+    {
+        "testcase_id": "M_org_query_4",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "F-组织ID管理-传入有效存在orgIds时，接口应返回对应子节点",
+        "description": "测试多个存在orgIds时，返回正确子节点列表。设计原因：覆盖有效输入等价类，确保批量orgIds输入功能正常，符合业务规则支持批量查询。",
+        "testSteps": "1. 调用POST接口 /pmpp/v4/orgs/list-authority-org-by-org-id\n2. 设置Header: Authorization=有效token\n3. 设置Body参数: orgIds=[10000, 10002], enable=null",
+        "preconditions": "数据库中准备数据：orgId 10000有直接下级组织（id=20000）；orgId 10002有直接下级组织（id=30000）。",
+        "expectResult": "返回JSON响应：{\"10000\":[{\"id\":20000,...}], \"10002\":[{\"id\":30000,...}]}，key为orgId，value为子节点列表。"
+    },
+    {
+        "testcase_id": "M_org_query_5",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "F-组织ID管理-传入不存在的orgIds时，接口应返回空列表",
+        "description": "测试不存在的orgIds时，处理无效输入。设计原因：覆盖无效等价类，确保接口对不存在ID的容错处理，避免数据错误影响下游操作。",
+        "testSteps": "1. 调用POST接口 /pmpp/v4/orgs/list-authority-org-by-org-id\n2. 设置Header: Authorization=有效token\n3. 设置Body参数: orgIds=[99999], enable=null",
+        "preconditions": "数据库中无orgId 99999记录。",
+        "expectResult": "返回JSON响应：{\"99999\":[]}，子节点列表为空。"
+    },
+    {
+        "testcase_id": "M_org_query_6",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "F-组织ID管理-传入空orgIds列表时，接口应返回空响应",
+        "description": "测试orgIds为空列表的边界情况。设计原因：覆盖边界值输入，确保接口处理空输入时不崩溃，符合外部依赖MySQL查询逻辑。",
+        "testSteps": "1. 调用POST接口 /pmpp/v4/orgs/list-authority-org-by-org-id\n2. 设置Header: Authorization=有效token\n3. 设置Body参数: orgIds=[], enable=null",
+        "preconditions": "无特殊数据准备。",
+        "expectResult": "返回JSON响应：{}，空对象。"
+    },
+    {
+        "testcase_id": "M_org_query_7",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "F-组织ID管理-传入单个orgId时，接口应返回子节点",
+        "description": "测试单个orgId输入的最小批量场景。设计原因：覆盖边界值（列表大小=1），确保接口支持最小输入规模，符合业务规则。",
+        "testSteps": "1. 调用POST接口 /pmpp/v4/orgs/list-authority-org-by-org-id\n2. 设置Header: Authorization=有效token\n3. 设置Body参数: orgIds=[10000], enable=null",
+        "preconditions": "数据库中准备数据：orgId 10000有直接下级组织（id=20000）。",
+        "expectResult": "返回JSON响应：{\"10000\":[{\"id\":20000,...}]}，正确返回子节点。"
+    },
+    {
+        "testcase_id": "M_org_query_8",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "F-状态过滤管理-传入无效enable值时，接口应返回错误",
+        "description": "测试enable为无效值时的处理。设计原因：覆盖无效等价类（如enable=2），确保参数验证逻辑健壮，防止无效输入导致系统异常。",
+        "testSteps": "1. 调用POST接口 /pmpp/v4/orgs/list-authority-org-by-org-id\n2. 设置Header: Authorization=有效token\n3. 设置Body参数: orgIds=[10000], enable=2",
+        "preconditions": "数据库中orgId 10000有子组织。",
+        "expectResult": "响应状态码400，错误信息如{\"error\":\"invalid parameter\"}。"
+    },
+    {
+        "testcase_id": "M_org_query_9",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "F-权限管理-无效token时，接口应返回401错误",
+        "description": "测试Authorization无效时的权限错误处理。设计原因：覆盖异常场景，确保接口安全验证符合接口文档描述的异常场景。",
+        "testSteps": "1. 调用POST接口 /pmpp/v4/orgs/list-authority-org-by-org-id\n2. 设置Header: Authorization=无效token\n3. 设置Body参数: orgIds=[10000], enable=null",
+        "preconditions": "无特殊数据准备。",
+        "expectResult": "响应状态码401，错误信息如{\"error\":\"invalid_token\"}。"
+    },
+    {
+        "testcase_id": "M_org_query_10",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "F-组织ID管理-传入混合有效和无效orgIds时，接口应部分返回",
+        "description": "测试混合有效和无效orgIds的组合输入。设计原因：覆盖实际场景等价类，确保接口正确处理部分有效输入，避免全失败。",
+        "testSteps": "1. 调用POST接口 /pmpp/v4/orgs/list-authority-org-by-org-id\n2. 设置Header: Authorization=有效token\n3. 设置Body参数: orgIds=[10000, 99999], enable=null",
+        "preconditions": "数据库中orgId 10000有子组织（id=20000）；无orgId 99999记录。",
+        "expectResult": "返回JSON响应：{\"10000\":[{\"id\":20000,...}], \"99999\":[]}，有效ID返回子节点，无效ID返回空列表。"
+    },
+    {
+        "testcase_id": "M_组织查询管理_01",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "MFQ_block_组织过滤管理-enable参数为1时接口返回启用状态组织",
+        "description": "验证当enable=1时接口严格过滤并仅返回enable=1的组织数据，覆盖核心业务规则：enable值控制状态过滤，确保返回数据enable字段一致性",
+        "testSteps": "1. 调用POST /pmpp/v4/orgs/list-authority-org-by-org-id\n2. Header设置Authorization: [有效Token]\n3. Body设置: {\"orgIds\":[10000], \"enable\":1}",
+        "preconditions": "1. 数据库存在父组织ID=10000\n2. 该父组织下包含：启用子组织（enable=1）*2 + 停用子组织（enable=0）*1",
+        "expectResult": "1. HTTP状态码200\n2. 响应体仅返回2个组织\n3. 每个返回组织的enable字段值均为1"
+    },
+    {
+        "testcase_id": "M_组织查询管理_02",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "MFQ_block_组织过滤管理-enable参数缺失时返回全部状态组织",
+        "description": "验证需求文档定义的默认行为：当enable参数缺失时返回所有状态（启用+停用）的组织，确保业务规则'enable=null时不过滤'被正确实现",
+        "testSteps": "1. 调用相同接口\n2. Body设置: {\"orgIds\":[10000]} （不包含enable字段）",
+        "preconditions": "同用例01数据环境",
+        "expectResult": "1. HTTP状态码200\n2. 响应体返回3个组织\n3. 返回组织包含enable=1和enable=0的数据"
+    },
+    {
+        "testcase_id": "M_组织查询管理_03",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "MFQ_block_组织过滤管理-enable非法值处理",
+        "description": "验证接口对非法enable值的容错能力（如enable=2），确保系统不崩溃且返回明确错误，覆盖外部依赖：参数校验逻辑",
+        "testSteps": "1. 调用相同接口\n2. Body设置: {\"orgIds\":[10000], \"enable\":2}",
+        "preconditions": "同用例01数据环境",
+        "expectResult": "1. HTTP状态码400\n2. 错误信息包含\"enable参数值无效\""
+    },
+    {
+        "testcase_id": "M_组织查询管理_04",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "MFQ_block_组织过滤管理-多组织ID查询时enable过滤",
+        "description": "验证当传入多个orgIds时，enable=1能跨所有查询节点正确过滤，覆盖关联操作：批量组织查询场景",
+        "testSteps": "1. 调用接口\n2. Body设置: {\"orgIds\":[10000,20000], \"enable\":1}",
+        "preconditions": "1. 组织10000下：启用子组织*1 + 停用子组织*1\n2. 组织20000下：启用子组织*2",
+        "expectResult": "1. HTTP状态码200\n2. 响应体共返回3个组织（10000下1个+20000下2个）\n3. 所有组织enable=1"
+    },
+    {
+        "testcase_id": "M_组织查询管理_05",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "MFQ_block_组织过滤管理-无启用组织时返回空列表",
+        "description": "验证当查询节点下无启用组织时返回空数组而非错误，确保业务规则'只返回启用组织'在边界场景的严谨性",
+        "testSteps": "1. 调用接口\n2. Body设置: {\"orgIds\":[30000], \"enable\":1}",
+        "preconditions": "组织30000下仅存在停用子组织（enable=0）*2",
+        "expectResult": "1. HTTP状态码200\n2. 响应体返回空数组[]"
+    },
+    {
+        "testcase_id": "MFQ_组织管理_01",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "F-状态过滤管理-enable参数为0时，接口应只返回停用状态组织",
+        "description": "验证当enable=0时接口是否严格过滤仅返回停用状态组织。设计原因：覆盖核心业务规则（enable值控制过滤），确保数据完整性（返回数据enable字段必须为0），优先级P0为阻塞性需求需深度验证。",
+        "testSteps": "1. 调用POST接口/pmpp/v4/orgs/list-authority-org-by-org-id\n2. Header设置有效Authorization\n3. Body设置orgIds=[10000,20000], enable=0",
+        "preconditions": "1. 数据库准备：组织表中存在ID=10000（enable=0）、ID=20000（enable=0）、ID=30000（enable=1）的组织\n2. 当前用户对10000/20000有权限",
+        "expectResult": "1. HTTP状态码200\n2. 响应体仅包含10000和20000的子组织列表\n3. 所有返回组织的enable字段值为0"
+    },
+    {
+        "testcase_id": "MFQ_组织管理_02",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "F-状态过滤管理-混合组织状态时enable=0的过滤准确性",
+        "description": "验证当查询节点包含混合状态组织时，enable=0是否精准过滤。设计原因：覆盖数据场景（需确保返回数据enable=0），验证业务规则在复杂数据下的健壮性。",
+        "testSteps": "1. 调用接口\n2. Header设置有效Authorization\n3. Body设置orgIds=[40000,50000], enable=0",
+        "preconditions": "1. 数据库：组织40000（enable=0）含子组织A（enable=0）；组织50000（enable=1）含子组织B（enable=0）\n2. 用户对40000/50000有权限",
+        "expectResult": "1. 仅返回组织A（enable=0）\n2. 不返回组织B（因父节点50000 enable=1被整体过滤）"
+    },
+    {
+        "testcase_id": "MFQ_组织管理_03",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "F-状态过滤管理-enable=0与excludeTypes参数组合过滤",
+        "description": "验证enable=0与其他参数（excludeTypes）组合时的优先级逻辑。设计原因：覆盖关联操作（外部依赖参数交互），确保业务规则叠加时过滤逻辑正确。",
+        "testSteps": "1. 调用接口\n2. Header设置有效Authorization\n3. Body设置orgIds=[60000], enable=0, excludeTypes=['project-command']",
+        "preconditions": "1. 数据库：组织60000（enable=0）含子组织C（type='project-command', enable=0）、子组织D（type='dept', enable=0）",
+        "expectResult": "1. 仅返回子组织D（enable=0且type非project-command）\n2. 不返回子组织C（被excludeTypes过滤）"
+    },
+    {
+        "testcase_id": "MFQ_组织管理_04",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "F-状态过滤管理-enable=0时无停用组织的空返回",
+        "description": "验证当查询节点无停用组织时返回空列表。设计原因：覆盖边界场景（无有效数据），确保业务规则不返回错误数据。",
+        "testSteps": "1. 调用接口\n2. Header设置有效Authorization\n3. Body设置orgIds=[70000], enable=0",
+        "preconditions": "1. 数据库：组织70000（enable=1）且所有子组织enable=1",
+        "expectResult": "1. 响应体返回空列表（例如：{\"70000\":[]}）"
+    },
+    {
+        "testcase_id": "MFQ_组织管理_05",
+        "summary": "F-状态过滤管理-enable参数无效值处理",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "description": "验证enable传入非法值（如字符串）时的错误处理。设计原因：覆盖无效等价类（等价类方法要求），确保接口鲁棒性。",
+        "testSteps": "1. 调用接口\n2. Header设置有效Authorization\n3. Body设置orgIds=[80000], enable=\"invalid\"",
+        "preconditions": "数据库存在组织80000（enable=0）",
+        "expectResult": "1. HTTP状态码400\n2. 响应体包含参数类型错误提示"
+    },
+    {
+        "testcase_id": "M_orgs_query_1",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "F-组织查询管理-enable参数未传递时返回所有组织",
+        "description": "验证当enable参数未传递时，接口返回所有组织（包括启用和停用状态），符合需求点'当enable=null或未传递时，不过滤并返回所有组织'。设计原因：覆盖有效等价类（enable未传递），确保业务规则'默认无过滤'被正确处理，并验证核心实体'组织'的状态完整性。",
+        "testSteps": "1. 准备有效Authorization token。\n2. 设置请求Header: Authorization = <valid_token>。\n3. 设置请求Body: {\"orgIds\": [10000], \"productCode\": true, \"moduleCode\": false}（不包含enable字段）。\n4. 调用POST /pmpp/v4/orgs/list-authority-org-by-org-id接口。",
+        "preconditions": "数据库中准备至少两个组织：一个启用状态组织（dataStatus=1），一个停用状态组织（dataStatus=0）；用户对orgId=10000有权限；Authorization token有效。",
+        "expectResult": "响应状态码200；返回的组织列表包含启用组织（dataStatus=1）和停用组织（dataStatus=0）；每个组织的dataStatus字段值包括0和1；响应体结构符合接口文档。"
+    },
+    {
+        "testcase_id": "M_orgs_query_2",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "F-组织查询管理-enable参数为null时返回所有组织",
+        "description": "验证当enable参数设置为null时，接口返回所有组织（包括启用和停用状态），符合需求点'当enable=null或未传递时，不过滤并返回所有组织'。设计原因：覆盖有效等价类（enable=null），确保与未传递场景等价，并验证数据'确保返回数据包含所有enable值'。",
+        "testSteps": "1. 准备有效Authorization token。\n2. 设置请求Header: Authorization = <valid_token>。\n3. 设置请求Body: {\"orgIds\": [10000], \"enable\": null, \"productCode\": true, \"moduleCode\": false}。\n4. 调用POST /pmpp/v4/orgs/list-authority-org-by-org-id接口。",
+        "preconditions": "数据库中准备至少两个组织：一个启用状态组织（dataStatus=1），一个停用状态组织（dataStatus=0）；用户对orgId=10000有权限；Authorization token有效。",
+        "expectResult": "响应状态码200；返回的组织列表包含启用组织（dataStatus=1）和停用组织（dataStatus=0）；每个组织的dataStatus字段值包括0和1；响应体结构符合接口文档。"
+    },
+    {
+        "testcase_id": "M_orgs_query_3",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "F-组织查询管理-多组织ID下enable未传递时返回所有组织",
+        "description": "验证当enable参数未传递且传入多个orgIds时，接口返回所有组织的子节点（包括启用和停用状态），符合需求点'传入多个组织id，可一次性查询多个组织的下级组织'。设计原因：扩展用例，覆盖多组织场景，确保业务规则'默认无过滤'在复杂数据下正确应用。",
+        "testSteps": "1. 准备有效Authorization token。\n2. 设置请求Header: Authorization = <valid_token>。\n3. 设置请求Body: {\"orgIds\": [10000, 20000], \"productCode\": true, \"moduleCode\": false}（不包含enable字段）。\n4. 调用POST /pmpp/v4/orgs/list-authority-org-by-org-id接口。",
+        "preconditions": "数据库中准备多个组织：orgId=10000下有启用和停用子组织；orgId=20000下有启用和停用子组织；用户对所有orgIds有权限；Authorization token有效。",
+        "expectResult": "响应状态码200；返回的组织列表针对每个orgId包含其子节点（dataStatus=0和1）；响应体key为orgId（如\"10000\"），value为对应子组织列表；所有子组织的dataStatus字段值包括0和1。"
+    },
+    {
+        "testcase_id": "M_orgs_query_4",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "F-组织查询管理-enable参数无效值时接口错误处理",
+        "description": "验证当enable参数设置为非法值（如2）时，接口返回错误响应，确保参数验证正确。设计原因：覆盖无效等价类（enable=2），作为扩展用例，防止边界值问题影响核心功能，符合测试方法注意事项'边界值合理性'。",
+        "testSteps": "1. 准备有效Authorization token。\n2. 设置请求Header: Authorization = <valid_token>。\n3. 设置请求Body: {\"orgIds\": [10000], \"enable\": 2, \"productCode\": true, \"moduleCode\": false}。\n4. 调用POST /pmpp/v4/orgs/list-authority-org-by-org-id接口。",
+        "preconditions": "数据库中准备组织数据；用户对orgId=10000有权限；Authorization token有效。",
+        "expectResult": "响应状态码400或500；错误响应体包含错误信息（如\"invalid parameter\"）；错误信息指示enable参数无效。"
+    },
+    {
+        "testcase_id": "M_org_query_1",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "MFQ_block_org_query_productCode未传递时默认true",
+        "description": "验证当productCode参数未传递时，接口使用默认值true，返回结果包含局指项目。设计原因：基于等价类方法覆盖参数缺失的有效等价类，确保默认值逻辑正确实现；关联业务规则：默认值逻辑；数据：影响查询结果是否包含局指项目。",
+        "testSteps": "1. 准备有效的Authorization token。\n2. 设置请求体：{\"orgIds\": [10000]}，不包含productCode字段。\n3. 调用POST /pmpp/v4/orgs/list-authority-org-by-org-id接口。",
+        "preconditions": "数据库中存在组织ID为10000的组织，且其下级组织中有至少一个局指项目（如类型为'project-command'）和一个非局指项目；enable参数未设置或设置为null以不过滤组织状态；用户拥有访问权限；Token有效。",
+        "expectResult": "接口响应状态码为200，返回的组织列表包含局指项目（例如，通过组织类型字段'type'识别为'project-command'）。"
+    },
+    {
+        "testcase_id": "M_org_query_2",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "MFQ_block_org_query_productCode传递true时包含局指项目",
+        "description": "验证当productCode参数传递为true时，接口返回结果包含局指项目。设计原因：基于等价类方法覆盖参数为true的有效等价类，确保参数显式设置时逻辑正确；关联操作：参数处理；数据：验证查询结果包含局指项目。",
+        "testSteps": "1. 准备有效的Authorization token。\n2. 设置请求体：{\"orgIds\": [10000], \"productCode\": true}。\n3. 调用POST /pmpp/v4/orgs/list-authority-org-by-org-id接口。",
+        "preconditions": "数据库中存在组织ID为10000的组织，且其下级组织中有至少一个局指项目和一个非局指项目；enable参数未设置或设置为null以不过滤组织状态；用户拥有访问权限；Token有效。",
+        "expectResult": "接口响应状态码为200，返回的组织列表包含局指项目（通过组织类型字段'type'识别）。"
+    },
+    {
+        "testcase_id": "M_org_query_3",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "MFQ_block_org_query_productCode传递false时不包含局指项目",
+        "description": "验证当productCode参数传递为false时，接口返回结果不包含局指项目。设计原因：基于等价类方法覆盖参数为false的有效等价类，确保参数显式设置时逻辑正确；关联业务规则：默认值逻辑；数据：验证查询结果排除局指项目。",
+        "testSteps": "1. 准备有效的Authorization token。\n2. 设置请求体：{\"orgIds\": [10000], \"productCode\": false}。\n3. 调用POST /pmpp/v4/orgs/list-authority-org-by-org-id接口。",
+        "preconditions": "数据库中存在组织ID为10000的组织，且其下级组织中有至少一个局指项目和一个非局指项目；enable参数未设置或设置为null以不过滤组织状态；用户拥有访问权限；Token有效。",
+        "expectResult": "接口响应状态码为200，返回的组织列表不包含任何局指项目（所有组织的类型字段'type'均不为'project-command'）。"
+    },
+    {
+        "testcase_id": "M_org_query_4",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "MFQ_block_org_query_productCode传递无效值时错误处理",
+        "description": "验证当productCode参数传递为非布尔值时，接口返回错误。设计原因：基于等价类方法覆盖无效等价类（如字符串值），确保参数验证正确；关联异常场景：参数类型错误处理；潜在能力：系统鲁棒性验证。",
+        "testSteps": "1. 准备有效的Authorization token。\n2. 设置请求体：{\"orgIds\": [10000], \"productCode\": \"abc\"}。\n3. 调用POST /pmpp/v4/orgs/list-authority-org-by-org-id接口。",
+        "preconditions": "数据库中存在组织ID为10000的组织，且其下级组织中有测试数据；enable参数未设置或设置为null以不过滤组织状态；用户拥有访问权限；Token有效。",
+        "expectResult": "接口响应状态码为400（或相应错误码），返回错误信息指示参数无效（例如，错误消息包含'无效参数'或'类型错误'）。"
+    },
+    {
+        "testcase_id": "EC_org_query_management_1",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "MFQ_block组织查询管理_moduleCode参数未传递时验证默认值false生效",
+        "description": "验证当moduleCode参数缺失时，系统正确应用默认值false（不包含组织岗位），关联需求点操作：参数默认处理；业务规则：默认值逻辑；数据：影响查询结果不包含岗位类型组织。确保核心需求P1覆盖等价类缺失场景。",
+        "testSteps": "1. 准备请求体：{\"orgIds\": [10000, 20000], \"enable\": null}（不包含moduleCode参数）\n2. 设置Authorization header为有效用户token\n3. 调用POST接口/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "preconditions": "1. 数据库准备：tenant_org_v3.t_org表中有多个组织数据，包括启用（enable=1）、停用（enable=0）状态的组织，以及类型为'position'的组织岗位数据\n2. 用户登录获取有效Authorization token\n3. orgIds参数使用[10000, 20000]确保有下级组织",
+        "expectResult": "接口返回200状态码；响应JSON中所有组织对象的type字段不包含'position'（岗位类型），且组织列表仅包含非岗位类型组织（如'project-command'），符合默认false行为。"
+    },
+    {
+        "testcase_id": "EC_org_query_management_2",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "MFQ_block组织查询管理_传递moduleCode=false时验证不包含组织岗位",
+        "description": "验证当moduleCode参数显式设置为false时，系统正确处理不包含组织岗位，关联业务规则：默认值逻辑；数据：影响查询结果。作为基准用例，覆盖等价类有效输入false场景，确保与默认行为一致。",
+        "testSteps": "1. 准备请求体：{\"orgIds\": [10000, 20000], \"moduleCode\": false, \"enable\": null}\n2. 设置Authorization header为有效用户token\n3. 调用POST接口/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "preconditions": "1. 数据库准备：tenant_org_v3.t_org表中有组织岗位数据（type='position'）和非岗位组织\n2. 用户登录获取有效Authorization token\n3. orgIds参数使用[10000, 20000]确保数据覆盖",
+        "expectResult": "接口返回200状态码；响应JSON中所有组织对象的type字段不包含'position'，组织列表仅包含非岗位类型组织，与moduleCode=false预期一致。"
+    },
+    {
+        "testcase_id": "EC_org_query_management_3",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "MFQ_block组织查询管理_传递moduleCode=true时验证包含组织岗位",
+        "description": "验证当moduleCode参数设置为true时，系统正确包含组织岗位，关联数据：影响查询结果包含岗位类型。覆盖等价类有效输入true场景，对比默认行为，确保参数显式传递时逻辑正确。",
+        "testSteps": "1. 准备请求体：{\"orgIds\": [10000, 20000], \"moduleCode\": true, \"enable\": null}\n2. 设置Authorization header为有效用户token\n3. 调用POST接口/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "preconditions": "1. 数据库准备：tenant_org_v3.t_org表中有类型为'position'的组织岗位数据\n2. 用户登录获取有效Authorization token\n3. orgIds参数使用[10000, 20000]确保下级组织包含岗位",
+        "expectResult": "接口返回200状态码；响应JSON中包含type为'position'的组织对象，组织列表包括岗位类型组织，符合moduleCode=true预期。"
+    },
+    {
+        "testcase_id": "equivalence_org_query_1",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "MFQ_block_org_query_excludeTypes_empty_list",
+        "description": "测试当excludeTypes参数为空列表时，接口应返回所有组织类型，不进行任何排除。设计原因：基于等价类划分法的有效等价类覆盖，确保系统正确处理空列表场景，符合业务规则要求排除逻辑的灵活性。",
+        "testSteps": "1. 准备有效的Authorization token。2. 设置请求Body参数：orgIds为['10000']（有效组织ID列表），excludeTypes=[]。3. 调用POST接口。",
+        "preconditions": "数据库中存在多种组织类型的数据，例如ID为10000的组织下有子组织类型包括'project-command'和'department'，且这些组织状态为启用或停用。",
+        "expectResult": "响应状态码200，返回的组织列表包含所有类型（如'project-command'和'department'），不排除任何组织类型。"
+    },
+    {
+        "testcase_id": "equivalence_org_query_2",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "MFQ_block_org_query_excludeTypes_single_valid",
+        "description": "测试当excludeTypes参数为单一有效组织类型时，接口应正确排除该类型。设计原因：覆盖有效等价类中单一值场景，验证基于excludeTypes值的过滤逻辑，确保核心业务规则实现正确。",
+        "testSteps": "1. 准备有效的Authorization token。2. 设置请求Body参数：orgIds为['10000']，excludeTypes=['project-command']。3. 调用POST接口。",
+        "preconditions": "数据库中存在组织类型'project-command'和'department'的子组织，ID为10000的组织下包含这些类型。",
+        "expectResult": "响应状态码200，返回的组织列表不包含类型为'project-command'的组织，但包含其他类型如'department'。"
+    },
+    {
+        "testcase_id": "equivalence_org_query_3",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "MFQ_block_org_query_excludeTypes_multiple_valid",
+        "description": "测试当excludeTypes参数为多个有效组织类型时，接口应排除所有指定类型。设计原因：覆盖有效等价类中多值场景，验证列表参数处理能力，确保业务规则支持多类型排除。",
+        "testSteps": "1. 准备有效的Authorization token。2. 设置请求Body参数：orgIds为['10000']，excludeTypes=['project-command', 'department']。3. 调用POST接口。",
+        "preconditions": "数据库中存在多种组织类型，包括'project-command'、'department'和'team'，ID为10000的组织下包含这些子组织。",
+        "expectResult": "响应状态码200，返回的组织列表不包含'project-command'或'department'类型，但可能包含其他类型如'team'。"
+    },
+    {
+        "testcase_id": "equivalence_org_query_4",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "MFQ_block_org_query_excludeTypes_invalid_type",
+        "description": "测试当excludeTypes参数包含无效组织类型时，接口应处理错误或忽略无效值。设计原因：覆盖无效等价类，验证系统对无效输入的健壮性，基于外部依赖组织类型参考文档的潜在错误处理。",
+        "testSteps": "1. 准备有效的Authorization token。2. 设置请求Body参数：orgIds为['10000']，excludeTypes=['invalid_type']。3. 调用POST接口。",
+        "preconditions": "数据库中存在有效组织类型如'project-command'，且' invalid_type'不在参考文档定义的类型中。",
+        "expectResult": "响应状态码400或200（如果系统忽略无效值），错误消息指示无效组织类型或返回列表不进行排除（如果实现为忽略）。"
+    },
+    {
+        "testcase_id": "equivalence_org_query_5",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "MFQ_block_org_query_excludeTypes_null_value",
+        "description": "测试当excludeTypes参数为null时，接口应不过滤组织类型。设计原因：覆盖无效等价类中null输入，验证参数默认行为，确保业务规则在参数缺失时正确处理为不过滤。",
+        "testSteps": "1. 准备有效的Authorization token。2. 设置请求Body参数：orgIds为['10000']，excludeTypes=null。3. 调用POST接口。",
+        "preconditions": "数据库中存在多种组织类型，如'project-command'和'department'。",
+        "expectResult": "响应状态码200，返回的组织列表包含所有类型，不过滤任何组织（与不提供excludeTypes参数行为一致）。"
+    },
+    {
+        "testcase_id": "equivalence_org_query_6",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "MFQ_block_org_query_excludeTypes_non_list",
+        "description": "测试当excludeTypes参数为非列表类型（如字符串）时，接口应返回错误。设计原因：覆盖无效等价类中类型错误输入，验证参数类型校验，确保系统防御无效数据格式。",
+        "testSteps": "1. 准备有效的Authorization token。2. 设置请求Body参数：orgIds为['10000']，excludeTypes='project-command'（字符串而非列表）。3. 调用POST接口。",
+        "preconditions": "数据库中存在组织类型'project-command'。",
+        "expectResult": "响应状态码400，错误消息指示参数类型无效或格式错误。"
+    },
+    {
+        "testcase_id": "equivalence_org_query_7",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "MFQ_block_org_query_excludeTypes_empty_with_enable",
+        "description": "测试当excludeTypes为空列表并与enable参数组合时，接口应正确处理状态过滤而不影响类型排除。设计原因：扩展用例，覆盖多参数组合场景，验证业务规则在交互下的稳定性，确保核心需求点兼容性。",
+        "testSteps": "1. 准备有效的Authorization token。2. 设置请求Body参数：orgIds为['10000']，excludeTypes=[], enable=1。3. 调用POST接口。",
+        "preconditions": "数据库中存在启用和停用状态的组织，类型包括'project-command'和'department'。",
+        "expectResult": "响应状态码200，返回的组织列表包含所有类型（不排除任何类型），但仅包含启用状态（enable=1）的组织。"
+    },
+    {
+        "testcase_id": "等价类_org_query_1",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "F-响应数据结构-enable参数为1时，接口应只返回启用状态组织",
+        "description": "测试enable=1过滤行为，验证响应以orgId为key，value列表只包含dataStatus=1的组织。设计原因：覆盖有效等价类（enable=1），确保核心业务规则（响应格式正确）支持懒加载树场景的数据完整性。",
+        "testSteps": "1. 调用接口 /pmpp/v4/orgs/list-authority-org-by-org-id，方法POST。\n2. 设置Header: Authorization=valid_token。\n3. 设置Body: orgIds=[10000], enable=1。",
+        "preconditions": "数据库中存在组织ID=10000，其子节点包括：一个启用组织（dataStatus=1）和一个停用组织（dataStatus=0）。",
+        "expectResult": "响应状态码200；响应体为JSON对象，key为'10000'，value为数组；数组中仅一个对象，其dataStatus字段值为1；数组长度等于启用子节点数量（1）。"
+    },
+    {
+        "testcase_id": "等价类_org_query_2",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "F-响应数据结构-enable参数为0时，接口应只返回停用状态组织",
+        "description": "测试enable=0过滤行为，验证响应以orgId为key，value列表只包含dataStatus=0的组织。设计原因：覆盖有效等价类（enable=0），确保业务规则（过滤停用组织）正确，保障懒加载树的数据准确性。",
+        "testSteps": "1. 调用接口 /pmpp/v4/orgs/list-authority-org-by-org-id，方法POST。\n2. 设置Header: Authorization=valid_token。\n3. 设置Body: orgIds=[10000], enable=0。",
+        "preconditions": "数据库中存在组织ID=10000，其子节点包括：一个启用组织（dataStatus=1）和一个停用组织（dataStatus=0）。",
+        "expectResult": "响应状态码200；响应体为JSON对象，key为'10000'，value为数组；数组中仅一个对象，其dataStatus字段值为0；数组长度等于停用子节点数量（1）。"
+    },
+    {
+        "testcase_id": "等价类_org_query_3",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "F-响应数据结构-enable参数为null时，接口应返回所有状态组织",
+        "description": "测试enable=null不过滤行为，验证响应以orgId为key，value列表包含所有子节点。设计原因：覆盖有效等价类（enable=null），确保响应格式完整（不过滤），支持下游懒加载树场景的全面数据加载。",
+        "testSteps": "1. 调用接口 /pmpp/v4/orgs/list-authority-org-by-org-id，方法POST。\n2. 设置Header: Authorization=valid_token。\n3. 设置Body: orgIds=[10000]（不包含enable参数）。",
+        "preconditions": "数据库中存在组织ID=10000，其子节点包括：一个启用组织（dataStatus=1）和一个停用组织（dataStatus=0）。",
+        "expectResult": "响应状态码200；响应体为JSON对象，key为'10000'，value为数组；数组包含两个对象，dataStatus字段值分别为0和1；数组长度等于总子节点数量（2）。"
+    },
+    {
+        "testcase_id": "等价类_org_query_4",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "F-响应数据结构-enable参数为无效值2时，接口应返回错误",
+        "description": "测试enable=2无效值，验证错误处理机制。设计原因：覆盖无效等价类（enable=2），确保接口对无效输入有健壮响应，防止懒加载树场景因数据格式错误崩溃。",
+        "testSteps": "1. 调用接口 /pmpp/v4/orgs/list-authority-org-by-org-id，方法POST。\n2. 设置Header: Authorization=valid_token。\n3. 设置Body: orgIds=[10000], enable=2。",
+        "preconditions": "数据库中存在组织ID=10000，其子节点包括启用和停用组织。",
+        "expectResult": "响应状态码400；响应体包含错误信息，如'error: invalid_parameter'，指示enable参数值无效；响应结构不包含orgId key的JSON对象。"
+    },
+    {
+        "testcase_id": "等价类_org_query_5",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "F-响应数据结构-enable参数为非整数时，接口应返回错误",
+        "description": "测试enable为字符串无效输入，验证参数类型检查。设计原因：覆盖无效等价类（非整数enable），确保接口处理类型错误，维护响应结构完整性。",
+        "testSteps": "1. 调用接口 /pmpp/v4/orgs/list-authority-org-by-org-id，方法POST。\n2. 设置Header: Authorization=valid_token。\n3. 设置Body: orgIds=[10000], enable=\"abc\"。",
+        "preconditions": "数据库中存在组织ID=10000，其子节点包括启用和停用组织。",
+        "expectResult": "响应状态码400；响应体包含错误信息，如'error: type_mismatch'，指示enable参数类型错误；响应结构不包含orgId key的JSON对象。"
+    },
+    {
+        "testcase_id": "等价类_org_query_6",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "F-响应数据结构-enable参数为负数时，接口应返回错误",
+        "description": "测试enable=-1无效边界值，验证参数范围检查。设计原因：覆盖无效等价类（负数enable），补充边界值测试，确保业务规则（enable仅0/1/null有效）被严格执行。",
+        "testSteps": "1. 调用接口 /pmpp/v4/orgs/list-authority-org-by-org-id，方法POST。\n2. 设置Header: Authorization=valid_token。\n3. 设置Body: orgIds=[10000], enable=-1。",
+        "preconditions": "数据库中存在组织ID=10000，其子节点包括启用和停用组织。",
+        "expectResult": "响应状态码400；响应体包含错误信息，如'error: out_of_range'，指示enable参数值超出范围；响应结构不包含orgId key的JSON对象。"
+    },
+    {
+        "testcase_id": "等价类_org_query_7",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "F-响应数据结构-传入多个orgIds时，接口应返回多键值对",
+        "description": "测试多个orgIds输入，验证响应以多个orgId为key的结构。设计原因：覆盖需求点（传入多个id），确保数据结构完整性支持批量查询场景。",
+        "testSteps": "1. 调用接口 /pmpp/v4/orgs/list-authority-org-by-org-id，方法POST。\n2. 设置Header: Authorization=valid_token。\n3. 设置Body: orgIds=[10000,20000], enable=null。",
+        "preconditions": "数据库中存在组织ID=10000和20000，每个都有子节点（包括启用和停用组织）。",
+        "expectResult": "响应状态码200；响应体为JSON对象，包含keys '10000'和'20000'；每个key对应一个数组，value列表长度等于各自子节点数；dataStatus值混合0和1。"
+    },
+    {
+        "testcase_id": "等价类_org_query_8",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "F-响应数据结构-无子节点时，接口应返回空列表",
+        "description": "测试无子节点场景，验证响应value为空数组。设计原因：覆盖边界场景（空列表），确保数据结构正确（key存在但value空），防止懒加载树误加载。",
+        "testSteps": "1. 调用接口 /pmpp/v4/orgs/list-authority-org-by-org-id，方法POST。\n2. 设置Header: Authorization=valid_token。\n3. 设置Body: orgIds=[30000], enable=null。",
+        "preconditions": "数据库中存在组织ID=30000，无任何子节点。",
+        "expectResult": "响应状态码200；响应体为JSON对象，key为'30000'，value为空数组[]；数组长度0。"
+    },
+    {
+        "testcase_id": "M_组织查询管理_1",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "F-组织查询管理-isLeaf为true时表示组织是叶节点",
+        "description": "验证响应字段isLeaf正确表示叶节点状态，当组织无子节点时isLeaf应为true。设计原因：基于业务规则isLeaf依赖于数据结构，确保数据一致性；关联核心实体组织和状态字段，覆盖有效等价类取值。",
+        "testSteps": "1. 调用接口 /pmpp/v4/orgs/list-authority-org-by-org-id。2. 设置请求头 Authorization 为有效用户Token。3. 设置请求体 orgIds 为叶节点组织的ID。4. 设置 enable 参数为 null 以不过滤组织状态。",
+        "preconditions": "数据库中准备一个组织，其无任何子节点（叶节点），数据状态正常。",
+        "expectResult": "响应中 isLeaf 字段值为 true，表示该组织为叶节点。"
+    },
+    {
+        "testcase_id": "M_组织查询管理_2",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "F-组织查询管理-isLeaf为false时表示组织非叶节点",
+        "description": "验证响应字段isLeaf正确表示非叶节点状态，当组织有子节点时isLeaf应为false。设计原因：基于业务规则isLeaf依赖于数据结构，确保数据一致性；关联核心实体组织和状态字段，覆盖有效等价类取值。",
+        "testSteps": "1. 调用接口 /pmpp/v4/orgs/list-authority-org-by-org-id。2. 设置请求头 Authorization 为有效用户Token。3. 设置请求体 orgIds 为非叶节点组织的ID。4. 设置 enable 参数为 null 以不过滤组织状态。",
+        "preconditions": "数据库中准备一个组织，其有至少一个子节点（非叶节点），数据状态正常。",
+        "expectResult": "响应中 isLeaf 字段值为 false，表示该组织为非叶节点。"
+    },
+    {
+        "testcase_id": "F-ORG_FILTER_01",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "F-组织过滤管理-enable=1且excludeTypes为空时，接口应只返回启用状态组织",
+        "description": "验证当enable参数为1（启用）且excludeTypes未设置时，接口仅返回启用状态（dataStatus=0）的组织。设计原因：覆盖核心参数组合场景，确保基础过滤逻辑符合业务规则中的多重过滤优先级。",
+        "testSteps": "1. 调用POST /pmpp/v4/orgs/list-authority-org-by-org-id接口\n2. 设置Header: Authorization=有效Token\n3. 设置Body: orgIds=[10000], enable=1, excludeTypes=[]",
+        "preconditions": "1. 数据库tenant_org_v3.t_org表中存在ID=10000的组织\n2. 该组织下包含至少1个启用状态子组织（dataStatus=0）\n3. Token对应账号对orgId=10000有权限",
+        "expectResult": "响应状态码200，响应体中仅包含dataStatus=0的组织，且所有返回组织的enable字段为1或未显式过滤。"
+    },
+    {
+        "testcase_id": "F-ORG_FILTER_02",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "F-组织过滤管理-enable=0且excludeTypes含单类型时，接口应排除停用组织及指定类型",
+        "description": "验证当enable=0（停用）且excludeTypes包含一个有效类型（如'project-command'）时，接口返回结果需同时满足停用状态过滤和组织类型排除。设计原因：测试参数交互逻辑，覆盖业务规则中多重过滤的叠加效应。",
+        "testSteps": "1. 调用POST接口\n2. 设置Header: Authorization=有效Token\n3. 设置Body: orgIds=[10000], enable=0, excludeTypes=['project-command']",
+        "preconditions": "1. orgId=10000下存在停用状态（dataStatus=1）且type='project-command'的子组织\n2. 存在其他停用状态但类型非'project-command'的子组织",
+        "expectResult": "响应状态码200，返回组织中无type='project-command'项，且所有组织dataStatus=1。"
+    },
+    {
+        "testcase_id": "F-ORG_FILTER_03",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "F-组织过滤管理-enable=null且excludeTypes含多类型时，接口应返回全状态组织但排除指定类型",
+        "description": "验证当enable未设置（null）且excludeTypes包含多个类型（如['project-command','bureau']）时，接口返回所有状态组织但过滤指定类型。设计原因：测试参数缺省值与多值排除的组合，覆盖数据过滤准确性需求。",
+        "testSteps": "1. 调用POST接口\n2. 设置Header: Authorization=有效Token\n3. 设置Body: orgIds=[10000], excludeTypes=['project-command','bureau']",
+        "preconditions": "1. orgId=10000下同时存在启用(dataStatus=0)和停用(dataStatus=1)子组织\n2. 包含type='project-command'和type='bureau'的组织",
+        "expectResult": "响应状态码200，返回组织包含dataStatus=0和1的项，但无type为'project-command'或'bureau'的组织。"
+    },
+    {
+        "testcase_id": "F-ORG_FILTER_04",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "F-组织过滤管理-enable=1且excludeTypes含无效类型时，接口应返回启用组织但忽略无效类型",
+        "description": "验证当enable=1且excludeTypes包含不存在类型（如'invalid-type'）时，接口仅过滤启用状态，无效类型参数不生效。设计原因：测试异常参数处理逻辑，关联功能交互中的容错机制。",
+        "testSteps": "1. 调用POST接口\n2. 设置Header: Authorization=有效Token\n3. 设置Body: orgIds=[10000], enable=1, excludeTypes=['invalid-type']",
+        "preconditions": "1. orgId=10000下存在启用状态子组织\n2. 所有组织类型均合法（无'invalid-type'）",
+        "expectResult": "响应状态码200，返回所有dataStatus=0的组织，且excludeTypes参数被忽略。"
+    },
+    {
+        "testcase_id": "F-ORG_FILTER_05",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "F-组织过滤管理-enable=0且excludeTypes为空时，无停用组织应返回空列表",
+        "description": "验证当enable=0但对应组织下无停用状态子组织时，接口返回空列表。设计原因：覆盖边界场景，确保数据过滤准确性在空结果集时的行为。",
+        "testSteps": "1. 调用POST接口\n2. 设置Header: Authorization=有效Token\n3. 设置Body: orgIds=[10000], enable=0, excludeTypes=[]",
+        "preconditions": "1. orgId=10000下所有子组织均为启用状态（dataStatus=0）",
+        "expectResult": "响应状态码200，返回对应orgId的值为空列表（如\"10000\":[]）。"
+    },
+    {
+        "testcase_id": "F-ORG_FILTER_06",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "F-组织过滤管理-无效Token时返回401错误",
+        "description": "验证当Authorization头使用无效Token时，接口返回401错误。设计原因：覆盖接口文档定义的异常场景，确保安全依赖项处理。",
+        "testSteps": "1. 调用POST接口\n2. 设置Header: Authorization=无效Token\n3. 设置Body: orgIds=[10000], enable=1",
+        "preconditions": "无特殊数据要求",
+        "expectResult": "响应状态码401，响应体包含{\"error\":\"invalid_token\"}。"
+    },
+    {
+        "testcase_id": "F-ORG_FILTER_07",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "F-组织过滤管理-enable=null且excludeTypes为空时，返回全状态组织",
+        "description": "验证当enable和excludeTypes均未设置时，接口返回所有状态（启用和停用）的子组织。设计原因：测试参数缺省组合，覆盖业务规则中无过滤条件的默认行为。",
+        "testSteps": "1. 调用POST接口\n2. 设置Header: Authorization=有效Token\n3. 设置Body: orgIds=[10000]",
+        "preconditions": "1. orgId=10000下同时存在dataStatus=0和1的子组织",
+        "expectResult": "响应状态码200，返回组织包含dataStatus=0和1的项。"
+    },
+    {
+        "testcase_id": "F-ORG_FILTER_08",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "F-组织过滤管理-enable=2（非法值）时，接口应返回参数错误",
+        "description": "验证当enable传入非法值（如2）时，接口正确处理参数错误。设计原因：测试输入边界值，覆盖数据验证逻辑。",
+        "testSteps": "1. 调用POST接口\n2. 设置Header: Authorization=有效Token\n3. 设置Body: orgIds=[10000], enable=2",
+        "preconditions": "无特殊数据要求",
+        "expectResult": "响应状态码400，响应体包含参数错误信息。"
+    },
+    {
+        "testcase_id": "MFQ_block_组织查询管理_001",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "MFQ_block_组织查询管理-orgIds传入空列表时返回空结果集",
+        "description": "验证当orgIds参数传入空列表[]时，接口按业务规则返回空结果集而非错误。关联需求：边界处理-空输入逻辑，数据：空结果验证。设计原因：符合边界值法中集合类型的最小边界（空集合）测试原则。",
+        "testSteps": "1. 构造POST请求\n2. Header设置Authorization: <有效Token>\n3. Body设置：{\"orgIds\": []}\n4. 发送请求到接口",
+        "preconditions": "1. 准备有效用户Token\n2. 确保接口服务正常运行\n3. 数据库存在至少1个有权限的组织数据",
+        "expectResult": "1. HTTP状态码200\n2. 响应体为{}（空JSON对象）\n3. 无错误信息返回"
+    },
+    {
+        "testcase_id": "MFQ_block_组织查询管理_002",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "MFQ_block_组织查询管理-空orgIds结合enable参数过滤",
+        "description": "验证空orgIds与enable参数组合场景。关联业务规则：空输入逻辑需保持一致性。设计原因：覆盖多参数边界组合（健壮性测试原则），防止参数耦合导致异常。",
+        "testSteps": "1. 构造POST请求\n2. Header设置Authorization: <有效Token>\n3. Body设置：{\"orgIds\": [], \"enable\": 1}\n4. 发送请求到接口",
+        "preconditions": "同MFQ_block_组织查询管理_001前置条件",
+        "expectResult": "1. HTTP状态码200\n2. 响应体为{}（空JSON对象）\n3. 响应中无enable相关字段"
+    },
+    {
+        "testcase_id": "M_OrgQuery_enable_invalid_1",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "F-组织查询管理-enable参数为-1时，接口应返回参数无效错误",
+        "description": "验证enable参数输入无效整数-1时系统的错误处理，设计原因：基于边界值分析法，覆盖最小值边界外无效值（min-1），确保系统正确处理参数值验证规则。",
+        "testSteps": "1. 准备有效的Authorization Header（有效用户Token）\n2. 设置Body参数：orgIds=[有效组织ID列表]，enable=-1\n3. 调用POST接口/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "preconditions": "1. 数据库中存在有效的组织数据（如t_org表中有启用和停用状态的组织）\n2. 用户Token已获取且有效\n3. 其他Body参数（如productCode、moduleCode）使用默认有效值",
+        "expectResult": "1. 响应状态码为400\n2. 响应体包含错误信息，如{\"error\":\"invalid_parameter\",\"error_description\":\"Invalid enable value\"}\n3. 无组织数据返回"
+    },
+    {
+        "testcase_id": "M_OrgQuery_enable_invalid_2",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "F-组织查询管理-enable参数为2时，接口应返回参数无效错误",
+        "description": "验证enable参数输入无效整数2时系统的错误处理，设计原因：基于边界值分析法，覆盖最大值边界外无效值（max+1），确保系统处理超出允许范围的数值。",
+        "testSteps": "1. 准备有效的Authorization Header（有效用户Token）\n2. 设置Body参数：orgIds=[有效组织ID列表]，enable=2\n3. 调用POST接口/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "preconditions": "1. 数据库中存在有效的组织数据\n2. 用户Token已获取且有效\n3. 其他Body参数使用默认有效值",
+        "expectResult": "1. 响应状态码为400\n2. 响应体包含错误信息，如{\"error\":\"invalid_parameter\",\"error_description\":\"Invalid enable value\"}\n3. 无组织数据返回"
+    },
+    {
+        "testcase_id": "M_OrgQuery_enable_invalid_3",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "F-组织查询管理-enable参数为0.5时，接口应返回参数无效错误",
+        "description": "验证enable参数输入小数0.5时系统的错误处理，设计原因：基于等价类划分法，覆盖非整数无效值等价类，确保系统拒绝非整型输入。",
+        "testSteps": "1. 准备有效的Authorization Header（有效用户Token）\n2. 设置Body参数：orgIds=[有效组织ID列表]，enable=0.5\n3. 调用POST接口/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "preconditions": "1. 数据库中存在有效的组织数据\n2. 用户Token已获取且有效\n3. 其他Body参数使用默认有效值",
+        "expectResult": "1. 响应状态码为400\n2. 响应体包含错误信息，如{\"error\":\"invalid_parameter\",\"error_description\":\"Enable must be integer\"}\n3. 无组织数据返回"
+    },
+    {
+        "testcase_id": "M_OrgQuery_enable_invalid_4",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "F-组织查询管理-enable参数为字符串'abc'时，接口应返回参数无效错误",
+        "description": "验证enable参数输入字符串'abc'时系统的错误处理，设计原因：基于等价类划分法，覆盖非数值类型无效值等价类，确保系统处理类型不匹配错误。",
+        "testSteps": "1. 准备有效的Authorization Header（有效用户Token）\n2. 设置Body参数：orgIds=[有效组织ID列表]，enable=\"abc\"\n3. 调用POST接口/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "preconditions": "1. 数据库中存在有效的组织数据\n2. 用户Token已获取且有效\n3. 其他Body参数使用默认有效值",
+        "expectResult": "1. 响应状态码为400\n2. 响应体包含错误信息，如{\"error\":\"invalid_parameter\",\"error_description\":\"Enable must be integer\"}\n3. 无组织数据返回"
+    },
+    {
+        "testcase_id": "M_OrgQuery_enable_invalid_5",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "F-组织查询管理-enable参数为布尔值true时，接口应返回参数无效错误",
+        "description": "验证enable参数输入布尔值true时系统的错误处理，设计原因：基于等价类划分法，覆盖非整型无效值等价类，确保系统处理类型转换错误。",
+        "testSteps": "1. 准备有效的Authorization Header（有效用户Token）\n2. 设置Body参数：orgIds=[有效组织ID列表]，enable=true\n3. 调用POST接口/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "preconditions": "1. 数据库中存在有效的组织数据\n2. 用户Token已获取且有效\n3. 其他Body参数使用默认有效值",
+        "expectResult": "1. 响应状态码为400\n2. 响应体包含错误信息，如{\"error\":\"invalid_parameter\",\"error_description\":\"Enable must be integer\"}\n3. 无组织数据返回"
+    },
+    {
+        "testcase_id": "M_OrgQuery_enable_invalid_6",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "F-组织查询管理-enable参数为3时，接口应返回参数无效错误",
+        "description": "验证enable参数输入其他无效整数3时系统的错误处理，设计原因：基于边界值分析法，补充中间无效值测试点，确保全面覆盖参数值验证规则。",
+        "testSteps": "1. 准备有效的Authorization Header（有效用户Token）\n2. 设置Body参数：orgIds=[有效组织ID列表]，enable=3\n3. 调用POST接口/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "preconditions": "1. 数据库中存在有效的组织数据\n2. 用户Token已获取且有效\n3. 其他Body参数使用默认有效值",
+        "expectResult": "1. 响应状态码为400\n2. 响应体包含错误信息，如{\"error\":\"invalid_parameter\",\"error_description\":\"Invalid enable value\"}\n3. 无组织数据返回"
+    },
+    {
+        "testcase_id": "M_permission_verification_1",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "MFQ_block_权限验证管理_验证用户有权限时authType为1",
+        "description": "验证当用户有权限访问指定组织时，响应中authType字段正确返回1。设计原因：基于核心业务规则（authType基于用户权限），覆盖有效等价类（用户有权限），确保核心需求点（P1优先级）的实现正确性。",
+        "testSteps": "1. 准备有效用户Token（表示有权限访问组织）。\n2. 调用POST接口，设置Header：Authorization=有效Token。\n3. 设置Body参数：orgIds=[有权限的组织ID]，enable=null（不过滤）。\n4. 执行接口请求。",
+        "preconditions": "1. 数据库中存在组织ID（例如10000），且用户对该组织有访问权限（通过权限表设置）。\n2. 用户Token已生成并有效（模拟有权限状态）。",
+        "expectResult": "响应状态码200，响应体中对于指定orgId的条目，authType字段值为1。"
+    },
+    {
+        "testcase_id": "M_permission_verification_2",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "MFQ_block_权限验证管理_验证用户无权限时authType为0",
+        "description": "验证当用户无权限访问指定组织时，响应中authType字段正确返回0。设计原因：基于核心业务规则（authType基于用户权限），覆盖有效等价类（用户无权限），确保核心需求点（P1优先级）的边界场景实现正确性。",
+        "testSteps": "1. 准备有效用户Token（表示无权限访问组织）。\n2. 调用POST接口，设置Header：Authorization=有效Token。\n3. 设置Body参数：orgIds=[无权限的组织ID]，enable=null（不过滤）。\n4. 执行接口请求。",
+        "preconditions": "1. 数据库中存在组织ID（例如20000），且用户对该组织无访问权限（通过权限表设置）。\n2. 用户Token已生成并有效（模拟无权限状态）。",
+        "expectResult": "响应状态码200，响应体中对于指定orgId的条目，authType字段值为0。"
+    },
+    {
+        "testcase_id": "M_permission_verification_3",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "MFQ_block_权限验证管理_验证无效Token时无authType返回",
+        "description": "验证当传递无效Token时，接口返回错误响应，不包含authType字段。设计原因：基于外部依赖（Authorization token验证），覆盖无效等价类（Token无效），确保异常处理符合接口文档描述（响应401错误）。",
+        "testSteps": "1. 准备无效用户Token（例如过期或错误格式）。\n2. 调用POST接口，设置Header：Authorization=无效Token。\n3. 设置Body参数：orgIds=[任意有效组织ID]，enable=null。\n4. 执行接口请求。",
+        "preconditions": "1. 数据库中存在组织ID（例如10000）。\n2. 无效Token已准备（模拟错误凭证）。",
+        "expectResult": "响应状态码401，响应体为{\"error\":\"invalid_token\",\"error_description\":\"cn-b0f7d40e-1f60-430f-bc20\"}，且响应中不包含authType字段。"
+    },
+    {
+        "testcase_id": "M_permission_verification_4",
+        "summary": "MFQ_block_权限验证管理_验证启用组织过滤时authType正确",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "description": "验证当enable参数设置为1（只返回启用组织）时，响应中authType字段仍正确表示权限。设计原因：结合关联操作（权限验证与组织过滤），覆盖enable参数影响下的有效场景，确保authType逻辑独立于组织状态过滤。",
+        "testSteps": "1. 准备有效用户Token（有权限访问组织）。\n2. 调用POST接口，设置Header：Authorization=有效Token。\n3. 设置Body参数：orgIds=[有权限的组织ID]，enable=1（只返回启用组织）。\n4. 执行接口请求。",
+        "preconditions": "1. 数据库中存在组织ID（例如10000），且该组织状态为启用（enable=1）。\n2. 用户对该组织有访问权限（权限表设置）。",
+        "expectResult": "响应状态码200，响应体中返回的组织列表均为启用状态（enable=1），且对于指定orgId的条目，authType字段值为1。"
+    },
+    {
+        "testcase_id": "M_permission_verification_5",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "MFQ_block_权限验证管理_验证停用组织过滤时authType正确",
+        "description": "验证当enable参数设置为0（只返回停用组织）时，响应中authType字段仍正确表示权限。设计原因：基于核心实体（组织状态与权限关联），覆盖enable参数边界值（0），确保authType在组织停用场景下逻辑正确。",
+        "testSteps": "1. 准备有效用户Token（无权限访问组织）。\n2. 调用POST接口，设置Header：Authorization=有效Token。\n3. 设置Body参数：orgIds=[无权限的组织ID]，enable=0（只返回停用组织）。\n4. 执行接口请求。",
+        "preconditions": "1. 数据库中存在组织ID（例如20000），且该组织状态为停用（enable=0）。\n2. 用户对该组织无访问权限（权限表设置）。",
+        "expectResult": "响应状态码200，响应体中返回的组织列表均为停用状态（enable=0），且对于指定orgId的条目，authType字段值为0。"
+    },
+    {
+        "testcase_id": "M_permission_verification_6",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "MFQ_block_权限验证管理_验证多个orgIds时authType正确",
+        "description": "验证当传入多个组织ID时，响应中每个组织的authType字段正确表示权限。设计原因：基于需求描述（可一次性查询多个组织），覆盖多输入组合场景，确保authType逻辑在批量查询中一致。",
+        "testSteps": "1. 准备有效用户Token（有权限访问组织A，无权限访问组织B）。\n2. 调用POST接口，设置Header：Authorization=有效Token。\n3. 设置Body参数：orgIds=[有权限的组织ID_A, 无权限的组织ID_B]，enable=null（不过滤）。\n4. 执行接口请求。",
+        "preconditions": "1. 数据库中存在两个组织：ID_A（用户有权限），ID_B（用户无权限）。\n2. 用户Token已准备（权限表设置对应权限）。",
+        "expectResult": "响应状态码200，响应体中对于orgId_A的条目authType字段值为1，对于orgId_B的条目authType字段值为0。"
+    },
+    {
+        "testcase_id": "M_权限验证管理_1",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "MFQ_block_权限验证管理_传入格式错误token时触发401错误",
+        "description": "验证当Authorization token格式不符合系统要求时，接口返回401状态码及标准错误响应。设计原因：覆盖业务规则中无效token的核心场景，确保认证服务依赖正确触发错误处理逻辑。",
+        "testSteps": "1. 构造POST请求\n2. 在Header中设置Authorization参数为'InvalidToken!@#'（格式错误示例）\n3. Body中设置必要参数如orgIds: [10000]\n4. 发送请求",
+        "preconditions": "无特殊数据准备，认证服务需正常运行",
+        "expectResult": "HTTP状态码401，响应体: {\"error\":\"invalid_token\"}"
+    },
+    {
+        "testcase_id": "M_权限验证管理_2",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "MFQ_block_权限验证管理_传入过期token时触发401错误",
+        "description": "验证过期token被系统识别为无效凭证。设计原因：覆盖外部依赖（认证服务）的时效性验证逻辑，关联核心实体用户凭证的生命周期管理。",
+        "testSteps": "1. 构造POST请求\n2. 在Header中设置Authorization参数为已过期的有效token（如超过24小时未刷新）\n3. Body中设置orgIds: [20000]\n4. 发送请求",
+        "preconditions": "需预先获取一个有效token并等待其自然过期",
+        "expectResult": "HTTP状态码401，响应体: {\"error\":\"invalid_token\"}"
+    },
+    {
+        "testcase_id": "M_权限验证管理_3",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "MFQ_block_权限验证管理_传入篡改后token时触发401错误",
+        "description": "验证被篡改的token触发安全机制。设计原因：覆盖业务规则中对token完整性的校验，防止伪造凭证攻击。",
+        "testSteps": "1. 获取有效token\n2. 修改token末尾字符（如将'abc'改为'abd'）\n3. 在Header中设置篡改后的token\n4. Body中设置orgIds: [30000]\n5. 发送请求",
+        "preconditions": "需预先获取一个有效token",
+        "expectResult": "HTTP状态码401，响应体: {\"error\":\"invalid_token\"}"
+    },
+    {
+        "testcase_id": "M_权限验证管理_4",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "MFQ_block_权限验证管理_空token触发401错误",
+        "description": "验证Authorization header为空值的异常处理。设计原因：覆盖边界场景，确保系统对空输入有健壮性处理。",
+        "testSteps": "1. 构造POST请求\n2. 在Header中设置Authorization参数为空字符串\n3. Body中设置orgIds: [40000]\n4. 发送请求",
+        "preconditions": "无特殊数据准备",
+        "expectResult": "HTTP状态码401，响应体: {\"error\":\"invalid_token\"}"
+    },
+    {
+        "testcase_id": "M_权限验证管理_5",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "MFQ_block_权限验证管理_组合无效token与其他参数",
+        "description": "验证在复杂请求场景下无效token的优先级处理。设计原因：确保错误处理逻辑不受其他参数干扰，符合操作错误处理的业务规则。",
+        "testSteps": "1. 构造POST请求\n2. 在Header中设置无效token（如'CorruptedToken123'）\n3. Body中设置orgIds: [50000], enable:1, productCode:true\n4. 发送请求",
+        "preconditions": "无特殊数据准备",
+        "expectResult": "HTTP状态码401，响应体: {\"error\":\"invalid_token\"}"
+    },
+    {
+        "testcase_id": "Q_data_consistency_01",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "F-数据一致性管理-验证返回数据与数据库t_org全字段匹配",
+        "description": "验证接口返回的组织数据与tenant_org_v3.t_org表字段完全一致，覆盖核心字段如id/enable/type等。设计原因：确保数据准确性，符合需求文档中'响应数据与MySQL数据库匹配'的P1级要求。",
+        "testSteps": "1. 调用接口传入有效Authorization头\n2. 设置orgIds=[10000]（存在组织）\n3. 不传enable参数\n4. 获取接口响应数据",
+        "preconditions": "数据库tenant_org_v3.t_org预置数据：id=10000(parentId=null, enable=1), id=478157538242560(parentId=10000, enable=0)",
+        "expectResult": "1. 响应状态码200\n2. 返回数据中id=478157538242560对象的每个字段值（如name/type/enable）与数据库SELECT * FROM t_org WHERE id=478157538242560查询结果完全一致"
+    },
+    {
+        "testcase_id": "Q_data_consistency_02",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "F-数据一致性管理-验证enable过滤条件与数据库匹配",
+        "description": "验证enable参数过滤结果与数据库状态一致。设计原因：确保新增字段enable的过滤逻辑准确反映数据库状态，覆盖需求中'enable=1时返回启用组织'的规则。",
+        "testSteps": "1. 调用接口传入有效Authorization头\n2. 设置orgIds=[10000]\n3. 设置enable=1\n4. 获取接口响应数据",
+        "preconditions": "数据库tenant_org_v3.t_org预置：id=10000(enable=1)的子组织A(enable=1)、子组织B(enable=0)",
+        "expectResult": "1. 响应状态码200\n2. 仅返回子组织A数据\n3. 子组织A的enable字段值=1，且与数据库SELECT enable FROM t_org WHERE id=A_ID结果一致"
+    },
+    {
+        "testcase_id": "Q_data_consistency_03",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "F-数据一致性管理-验证多组织查询时的数据完整性",
+        "description": "验证同时查询多个组织时，返回的所有子节点数据均与数据库匹配。设计原因：确保'传入多个组织id'场景下数据完整性与准确性。",
+        "testSteps": "1. 调用接口传入有效Authorization头\n2. 设置orgIds=[10000,20000]\n3. 不传enable参数\n4. 获取接口响应数据",
+        "preconditions": "数据库预置：组织10000有子组织A/B，组织20000有子组织C/D",
+        "expectResult": "1. 响应状态码200\n2. 返回数据包含A/B/C/D四个对象\n3. 每个对象的fullId/fullName等字段值与数据库SELECT对应字段的结果完全匹配"
+    },
+    {
+        "testcase_id": "Q_data_consistency_04",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "F-数据一致性管理-验证空子节点时数据准确性",
+        "description": "验证当组织无子节点时返回空数组，且数据库无对应记录。设计原因：确保边界场景下数据一致性，避免返回虚假数据。",
+        "testSteps": "1. 调用接口传入有效Authorization头\n2. 设置orgIds=[30000]（无子节点的组织）\n3. 不传enable参数",
+        "preconditions": "数据库tenant_org_v3.t_org中id=30000的组织无childNodes记录",
+        "expectResult": "1. 响应状态码200\n2. 返回JSON中key='30000'的值为空数组[]\n3. 数据库查询确认无WHERE parentId=30000的记录"
+    },
+    {
+        "testcase_id": "Q_data_consistency_05",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "F-数据一致性管理-验证状态过滤与数据库实时同步",
+        "description": "验证数据库状态变更后接口返回立即同步。设计原因：确保数据一致性包含实时性要求，符合'数据查询'操作特性。",
+        "testSteps": "1. 调用接口查询orgIds=[40000]（enable=1）\n2. 在数据库将子组织enable从1更新为0\n3. 立即重新调用接口查询相同orgIds",
+        "preconditions": "数据库预置：组织40000的子组织初始enable=1",
+        "expectResult": "1. 首次调用返回该子组织数据\n2. 数据库更新后第二次调用返回空数组\n3. 数据库SELECT确认enable已更新为0"
+    },
+    {
+        "testcase_id": "Q_performance_组织权限_1",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "MFQ_block_组织权限_测试enable_null时小批量查询响应时间",
+        "description": "验证在enable参数为null（不过滤组织状态）时，查询少量组织id的响应时间在可接受范围。设计原因：覆盖典型懒加载树场景的性能指标（时间：性能指标），确保批量查询在低负载下响应迅速，符合P2边界场景需求优先级。",
+        "testSteps": "1. 准备测试数据：创建5个组织节点（确保有启用和停用状态）。\n2. 调用API：POST /pmpp/v4/orgs/list-authority-org-by-org-id with Authorization header（有效token），body: {\"orgIds\": [\"id1\", \"id2\", \"id3\", \"id4\", \"id5\"], \"enable\": null}。\n3. 使用性能监控工具（如JMeter）测量接口响应时间。",
+        "preconditions": "数据库（tenant_org_v3.t_org表）中存在多个组织节点；用户已登录，token有效；系统处于低负载状态（无其他并发操作）。",
+        "expectResult": "响应时间在可接受范围内（例如<500ms）；接口返回所有组织节点（包括启用和停用状态）。"
+    },
+    {
+        "testcase_id": "Q_performance_组织权限_2",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "MFQ_block_组织权限_测试enable_null时中批量查询响应时间",
+        "description": "验证在enable参数为null时，查询中等数量组织id的响应时间在可接受范围。设计原因：测试批量处理（操作：批量处理）在典型数据量下的性能，确保系统处理能力满足业务规则（如懒加载树动态加载），关联外部依赖（数据库查询）。",
+        "testSteps": "1. 准备测试数据：创建50个组织节点（混合启用和停用状态）。\n2. 调用API：POST /pmpp/v4/orgs/list-authority-org-by-org-id with Authorization header（有效token），body: {\"orgIds\": [\"id1\", \"id2\", ..., \"id50\"], \"enable\": null}。\n3. 使用性能监控工具测量响应时间。",
+        "preconditions": "数据库中有至少50个组织节点；用户token有效；系统环境稳定（平台：环境影响，如网络延迟<50ms）。",
+        "expectResult": "响应时间在可接受范围内（例如<2s）；接口返回所有组织节点，无遗漏。"
+    },
+    {
+        "testcase_id": "Q_performance_组织权限_3",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "MFQ_block_组织权限_测试enable_null时大批量查询响应时间",
+        "description": "验证在enable参数为null时，查询大量组织id的响应时间在可接受范围。设计原因：覆盖高负载边界场景（时间：性能指标），测试系统在批量查询大批量数据时的性能极限，确保响应时间可接受，避免下游操作延迟。",
+        "testSteps": "1. 准备测试数据：创建100个组织节点（确保数据多样性）。\n2. 调用API：POST /pmpp/v4/orgs/list-authority-org-by-org-id with Authorization header（有效token），body: {\"orgIds\": [\"id1\", \"id2\", ..., \"id100\"], \"enable\": null}。\n3. 使用性能监控工具测量响应时间。",
+        "preconditions": "数据库中有至少100个组织节点；用户token有效；系统资源充足（CPU和内存使用率<70%）。",
+        "expectResult": "响应时间在可接受范围内（例如<5s）；接口返回完整组织列表。"
+    },
+    {
+        "testcase_id": "Q_performance_组织权限_4",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "MFQ_block_组织权限_测试enable_0时小批量查询响应时间",
+        "description": "验证在enable参数为0（只返回停用组织）时，查询少量组织id的响应时间在可接受范围。设计原因：测试过滤规则（业务规则）下的性能指标（时间：性能指标），确保在启用状态过滤时响应迅速，符合需求点优先级P2。",
+        "testSteps": "1. 准备测试数据：创建5个组织节点（其中3个停用状态）。\n2. 调用API：POST /pmpp/v4/orgs/list-authority-org-by-org-id with Authorization header（有效token），body: {\"orgIds\": [\"id1\", \"id2\", \"id3\", \"id4\", \"id5\"], \"enable\": 0}。\n3. 使用性能监控工具测量响应时间。",
+        "preconditions": "数据库中有停用组织节点；用户token有效；系统无其他干扰进程。",
+        "expectResult": "响应时间在可接受范围内（例如<500ms）；接口只返回停用状态组织节点。"
+    },
+    {
+        "testcase_id": "Q_performance_组织权限_5",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "MFQ_block_组织权限_测试enable_0时中批量查询响应时间",
+        "description": "验证在enable参数为0时，查询中等数量组织id的响应时间在可接受范围。设计原因：测试批量处理（操作：批量处理）在过滤停用组织下的性能，确保系统处理效率不受过滤逻辑影响，关联数据库查询优化。",
+        "testSteps": "1. 准备测试数据：创建50个组织节点（其中20个停用状态）。\n2. 调用API：POST /pmpp/v4/orgs/list-authority-org-by-org-id with Authorization header（有效token），body: {\"orgIds\": [\"id1\", \"id2\", ..., \"id50\"], \"enable\": 0}。\n3. 使用性能监控工具测量响应时间。",
+        "preconditions": "数据库中有足够停用组织；用户token有效；网络环境稳定。",
+        "expectResult": "响应时间在可接受范围内（例如<2s）；接口仅返回停用组织节点。"
+    },
+    {
+        "testcase_id": "Q_performance_组织权限_6",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "MFQ_block_组织权限_测试enable_0时大批量查询响应时间",
+        "description": "验证在enable参数为0时，查询大量组织id的响应时间在可接受范围。设计原因：覆盖高负载过滤场景（平台：环境影响），测试系统在批量查询大批量停用组织时的性能极限，确保响应时间可接受。",
+        "testSteps": "1. 准备测试数据：创建100个组织节点（其中50个停用状态）。\n2. 调用API：POST /pmpp/v4/orgs/list-authority-org-by-org-id with Authorization header（有效token），body: {\"orgIds\": [\"id1\", \"id2\", ..., \"id100\"], \"enable\": 0}。\n3. 使用性能监控工具测量响应时间。",
+        "preconditions": "数据库中有大量停用组织；用户token有效；系统资源监控开启。",
+        "expectResult": "响应时间在可接受范围内（例如<5s）；接口只返回停用组织节点。"
+    },
+    {
+        "testcase_id": "Q_performance_组织权限_7",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "MFQ_block_组织权限_测试enable_1时小批量查询响应时间",
+        "description": "验证在enable参数为1（只返回启用组织）时，查询少量组织id的响应时间在可接受范围。设计原因：测试启用状态过滤下的性能指标（时间：性能指标），确保在核心业务场景（懒加载树）中响应迅速，符合需求文档描述。",
+        "testSteps": "1. 准备测试数据：创建5个组织节点（其中3个启用状态）。\n2. 调用API：POST /pmpp/v4/orgs/list-authority-org-by-org-id with Authorization header（有效token），body: {\"orgIds\": [\"id1\", \"id2\", \"id3\", \"id4\", \"id5\"], \"enable\": 1}。\n3. 使用性能监控工具测量响应时间。",
+        "preconditions": "数据库中有启用组织节点；用户token有效；系统负载低。",
+        "expectResult": "响应时间在可接受范围内（例如<500ms）；接口只返回启用状态组织节点。"
+    },
+    {
+        "testcase_id": "Q_performance_组织权限_8",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "MFQ_block_组织权限_测试enable_1时中批量查询响应时间",
+        "description": "验证在enable参数为1时，查询中等数量组织id的响应时间在可接受范围。设计原因：测试批量处理（操作：批量处理）在过滤启用组织下的性能，确保系统效率，关联外部依赖（如数据库索引优化）。",
+        "testSteps": "1. 准备测试数据：创建50个组织节点（其中30个启用状态）。\n2. 调用API：POST /pmpp/v4/orgs/list-authority-org-by-org-id with Authorization header（有效token），body: {\"orgIds\": [\"id1\", \"id2\", ..., \"id50\"], \"enable\": 1}。\n3. 使用性能监控工具测量响应时间。",
+        "preconditions": "数据库中有足够启用组织；用户token有效；环境无高延迟。",
+        "expectResult": "响应时间在可接受范围内（例如<2s）；接口仅返回启用组织节点。"
+    },
+    {
+        "testcase_id": "Q_performance_组织权限_9",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "MFQ_block_组织权限_测试enable_1时大批量查询响应时间",
+        "description": "验证在enable参数为1时，查询大量组织id的响应时间在可接受范围。设计原因：覆盖高负载启用过滤场景（平台：环境影响），测试系统在批量查询大批量启用组织时的性能极限，确保响应时间可接受，符合需求点优先级P2。",
+        "testSteps": "1. 准备测试数据：创建100个组织节点（其中60个启用状态）。\n2. 调用API：POST /pmpp/v4/orgs/list-authority-org-by-org-id with Authorization header（有效token），body: {\"orgIds\": [\"id1\", \"id2\", ..., \"id100\"], \"enable\": 1}。\n3. 使用性能监控工具测量响应时间。",
+        "preconditions": "数据库中有大量启用组织；用户token有效；系统CPU和内存使用正常。",
+        "expectResult": "响应时间在可接受范围内（例如<5s）；接口只返回启用组织节点。"
+    },
+    {
+        "testcase_id": "Q_兼容性_1",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "MFQ_block_兼容性-Windows+Chrome环境下接口基本功能验证",
+        "description": "验证在Windows+Chrome网关环境组合下接口正常返回数据，覆盖操作系统与浏览器双因子组合，确保基础兼容性",
+        "testSteps": "1. 配置网关环境：Windows 11 + Chrome v115\n2. 调用POST接口，Header设置有效Authorization\n3. Body参数：orgIds=[10000], enable=null",
+        "preconditions": "1. 测试环境部署网关模拟器\n2. 数据库预置组织ID 10000及其子节点数据\n3. 有效用户Token已生成",
+        "expectResult": "HTTP状态码200，返回JSON包含orgId 10000对应的子节点列表"
+    },
+    {
+        "testcase_id": "Q_兼容性_2",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "MFQ_block_兼容性-Linux+Firefox环境下HTTPS协议验证",
+        "description": "覆盖Linux+Firefox组合及HTTPS协议因子，验证加密传输场景的兼容性",
+        "testSteps": "1. 配置网关环境：Ubuntu 22.04 + Firefox v120\n2. 启用HTTPS协议调用接口\n3. Body参数：orgIds=[20000,30000], enable=1",
+        "preconditions": "1. SSL证书在网关环境配置完成\n2. 组织ID 20000(启用)/30000(启用)存在子节点",
+        "expectResult": "HTTP状态码200，返回数据仅包含enable=1的组织节点"
+    },
+    {
+        "testcase_id": "Q_兼容性_3",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "MFQ_block_兼容性-macOS+Safari边界参数测试",
+        "description": "验证macOS+Safari环境下大数量orgIds参数处理能力，覆盖边界场景兼容性",
+        "testSteps": "1. 配置网关环境：macOS Ventura + Safari v16\n2. Body设置orgIds=[101,102...150](50个ID)\n3. enable=0",
+        "preconditions": "1. 数据库预置150个有效组织ID\n2. 网关连接池参数调优完成",
+        "expectResult": "HTTP状态码200，返回数据量符合预期且仅含enable=0节点"
+    },
+    {
+        "testcase_id": "Q_兼容性_4",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "MFQ_block_兼容性-Edge+高并发场景验证",
+        "description": "覆盖Edge浏览器与高并发因子组合，测试网关环境下的负载兼容性",
+        "testSteps": "1. 配置网关环境：Windows Server + Edge v115\n2. 模拟50并发请求\n3. 参数：orgIds=[50000], enable=null",
+        "preconditions": "1. 压力测试工具部署完成\n2. 组织ID 50000存在10+子节点",
+        "expectResult": "所有请求HTTP状态码200，响应时间<500ms，数据一致性验证通过"
+    },
+    {
+        "testcase_id": "O_LAZYLOAD_001",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "MFQ_block_懒加载树-正常流程-enable=null时返回所有状态组织",
+        "description": "验证当enable参数未传递时，接口正确返回所有状态（启用/禁用）的直接下级组织。设计原因：覆盖需求中enable=null的基础业务规则，确保懒加载树初始加载完整数据。",
+        "testSteps": "1. 准备有效Token\n2. POST请求接口，body: {\"orgIds\": [10000], \"productCode\": true}\n3. 不传递enable字段",
+        "preconditions": "数据库存在组织ID=10000，其子节点包含enable=0和enable=1的组织各至少1个；用户对10000及其子节点有权限",
+        "expectResult": "HTTP 200；响应体中'10000'数组包含所有子节点；返回数据包含enable=0和enable=1的组织"
+    },
+    {
+        "testcase_id": "O_LAZYLOAD_002",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "MFQ_block_懒加载树-状态过滤-enable=1时仅返回启用组织",
+        "description": "验证enable=1时接口精确过滤返回启用状态的子节点。设计原因：覆盖需求新增字段的核心功能，确保树结构动态加载时能按状态过滤。",
+        "testSteps": "1. 准备有效Token\n2. POST请求接口，body: {\"orgIds\": [10000], \"enable\": 1}",
+        "preconditions": "同O_LAZYLOAD_001；确保存在enable=1的子组织",
+        "expectResult": "HTTP 200；响应体'10000'数组仅包含enable=1的组织；无enable=0的组织"
+    },
+    {
+        "testcase_id": "O_LAZYLOAD_003",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "MFQ_block_懒加载树-状态过滤-enable=0时仅返回禁用组织",
+        "description": "验证enable=0时接口精确过滤返回禁用状态的子节点。设计原因：覆盖需求边界场景，确保禁用组织在树结构中可被独立加载。",
+        "testSteps": "1. 准备有效Token\n2. POST请求接口，body: {\"orgIds\": [10000], \"enable\": 0}",
+        "preconditions": "同O_LAZYLOAD_001；确保存在enable=0的子组织",
+        "expectResult": "HTTP 200；响应体'10000'数组仅包含enable=0的组织；无enable=1的组织"
+    },
+    {
+        "testcase_id": "O_LAZYLOAD_004",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "MFQ_block_懒加载树-多组织查询-同时返回多个父节点子集",
+        "description": "验证传入多个orgIds时，接口分别返回每个组织的直接子节点。设计原因：覆盖需求中'一次性查询多个组织'的业务规则，验证懒加载树批量展开能力。",
+        "testSteps": "1. 准备有效Token\n2. POST请求接口，body: {\"orgIds\": [10000, 20000], \"enable\": null}",
+        "preconditions": "组织10000和20000存在不同的子节点集合；用户对两组节点均有权限",
+        "expectResult": "HTTP 200；响应体同时包含'10000'和'20000'键；每个键对应数组为其正确子节点集合"
+    },
+    {
+        "testcase_id": "O_LAZYLOAD_005",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "MFQ_block_懒加载树-异常流程-无效Token返回401",
+        "description": "验证当Token无效时接口返回401错误。设计原因：覆盖接口文档定义的异常场景，确保用户未授权时懒加载流程中断。",
+        "testSteps": "1. 准备无效Token\n2. POST请求接口，body: {\"orgIds\": [10000]}",
+        "preconditions": "无特殊数据要求",
+        "expectResult": "HTTP 401；响应体: {\"error\":\"invalid_token\",\"error_description\":\"cn-b0f7d40e-1f60-430f-bc20\"}"
+    },
+    {
+        "testcase_id": "O_LAZYLOAD_006",
+        "targetAPI": "/pmpp/v4/orgs/list-authority-org-by-org-id",
+        "summary": "MFQ_block_懒加载树-边界场景-空子节点返回空数组",
+        "description": "验证当组织无子节点时接口返回空数组。设计原因：覆盖树结构动态加载的下游操作，确保前端能正确处理空子树。",
+        "testSteps": "1. 准备有效Token\n2. POST请求接口，body: {\"orgIds\": [30000], \"enable\": null}",
+        "preconditions": "组织ID=30000存在且无任何子节点；用户有该组织权限",
+        "expectResult": "HTTP 200；响应体'30000'键对应空数组[]"
+    }
+]

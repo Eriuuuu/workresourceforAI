@@ -1,0 +1,10 @@
+langchain==0.0.346
+openai==0.28.1
+chromadb==0.4.15
+py2neo==2021.2.4
+flask==2.3.3
+python-dotenv==1.0.0
+requests==2.31.0
+sseclient-py==1.8.0
+tiktoken==0.12.0
+clang==20.1.5

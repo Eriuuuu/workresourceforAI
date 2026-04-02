@@ -1,0 +1,200 @@
+[
+    {
+        "module": "拾取处理模块",
+        "moduleDescription": "处理拾取射线与模型相交时的选择集范围、排序规则和高亮行为，覆盖三种相交场景（真实相交、容差相交、混合相交）的核心逻辑",
+        "recommendedMethod": "判定表",
+        "recommendationReason": "模块内需求点（如REQ_PICK_001-004,006-009）均涉及多条件组合决策（Case类型、相交类型），判定表能系统覆盖所有条件-动作组合，确保规则完整性",
+        "requirements": [
+            {
+                "originalRequirement": "在拾取射线与模型均为真实相交时（Case1），仅距离屏幕最近的一个或若干个模型加入选择集。",
+                "MFQ_block": "M",
+                "priority": "P1",
+                "Reason": "需求文档四、Case1选择集范围描述：'仅有距离屏幕最近的那一个（或若干个）模型加入选择集'。",
+                "RelationElement": "核心实体: 模型, 拾取射线; 操作: 确定选择集范围; 业务规则: Case1条件; 状态: 选择集从空到有模型; 外部依赖: 视图可见性设置。",
+                "matchedMethod": "判定表",
+                "matchConfidence": "高",
+                "matchReason": "需求明确条件（Case1真实相交）和动作（选择集范围决策），判定表专精多条件逻辑组合验证"
+            },
+            {
+                "originalRequirement": "在拾取射线与模型均为真实相交时（Case1），选择集内模型按模型与拾取射线真实交点距离屏幕的远近排序。",
+                "MFQ_block": "M",
+                "priority": "P1",
+                "Reason": "需求文档四、Case1排序规则描述：'按照模型与拾取射线真实交点距离屏幕的远近，进行排序'。",
+                "RelationElement": "核心实体: 模型, 真实交点; 操作: 排序选择集; 业务规则: Case1排序逻辑; 状态: 选择集排序状态变化; 数据: 距离数据准确性。",
+                "matchedMethod": "判定表",
+                "matchConfidence": "高",
+                "matchReason": "排序行为由Case1条件触发，判定表可建模条件（相交类型）与动作（排序规则）的映射关系"
+            },
+            {
+                "originalRequirement": "在拾取射线与模型均为容差相交时（Case2），所有与拾取射线容差相交的模型加入选择集。",
+                "MFQ_block": "M",
+                "priority": "P1",
+                "Reason": "需求文档四、Case2选择集范围描述：'所有与拾取射线容差相交的模型结果，均加入选择集'。",
+                "RelationElement": "核心实体: 模型, 容差相交; 操作: 确定选择集范围; 业务规则: Case2条件; 状态: 选择集内容变化; 外部依赖: 容差范围计算。",
+                "matchedMethod": "判定表",
+                "matchConfidence": "高",
+                "matchReason": "需求定义条件（Case2容差相交）和动作（选择集范围），判定表适合验证业务规则组合"
+            },
+            {
+                "originalRequirement": "在拾取射线与模型均为容差相交时（Case2），选择集内模型按模型与拾取射线容差交点距离屏幕的远近排序。",
+                "MFQ_block": "M",
+                "priority": "P1",
+                "Reason": "需求文档四、Case2排序规则描述：'所有选择集内的模型结果，按照模型与拾取射线容差交点距离屏幕的远近，进行排序'。",
+                "RelationElement": "核心实体: 模型, 容差交点; 操作: 排序选择集; 业务规则: Case2排序逻辑; 数据: 距离数据一致性; 状态: 选择集排序状态。",
+                "matchedMethod": "判定表",
+                "matchConfidence": "高",
+                "matchReason": "排序逻辑依赖Case2条件，判定表可覆盖条件输入（相交类型）与输出（排序行为）的逻辑关系"
+            },
+            {
+                "originalRequirement": "在拾取射线与模型均为容差相交时（Case2），默认高亮模型为容差交点距离屏幕最近的三维模型。",
+                "MFQ_block": "F",
+                "priority": "P1",
+                "Reason": "需求文档四、Case2排序规则描述：'默认高亮的模型为：容差交点距离屏幕最近的三维模型'。",
+                "RelationElement": "核心实体: 模型, 高亮状态; 操作: 高亮模型; 功能交互: 排序与高亮集成; 状态: 高亮状态变迁; 业务规则: 默认高亮规则。",
+                "matchedMethod": "UI验证测试",
+                "matchConfidence": "高",
+                "matchReason": "需求聚焦视觉元素（高亮状态）和交互行为，UI验证测试直接验证界面状态与设计一致性"
+            },
+            {
+                "originalRequirement": "在拾取射线既包含真实相交又包含容差相交时（Case3），所有容差相交模型按交点到屏幕距离从近到远遍历，直到找到第一个真实相交模型，将遍历部分加入选择集。",
+                "MFQ_block": "M",
+                "priority": "P1",
+                "Reason": "需求文档四、Case3选择集范围描述：'所有与拾取射线容差相交的模型结果按照交点到屏幕的距离从近到远遍历，直到找到第一个真实相交的模型结果，将前面这部分加入选择集'。",
+                "RelationElement": "核心实体: 模型, 真实相交, 容差相交; 操作: 遍历交点; 业务规则: Case3条件分支; 状态: 选择集内容变化; 外部依赖: 视图遮挡处理。",
+                "matchedMethod": "判定表",
+                "matchConfidence": "高",
+                "matchReason": "复杂条件分支（混合相交）驱动动作（遍历逻辑），判定表擅长处理多条件决策场景"
+            },
+            {
+                "originalRequirement": "在拾取射线既包含真实相交又包含容差相交时（Case3），选择集内模型按模型与拾取射线容差交点距离屏幕的远近排序。",
+                "MFQ_block": "M",
+                "priority": "P1",
+                "Reason": "需求文档四、Case3排序规则描述：'所有选择集内的模型结果，按照模型与拾取射线容差交点距离屏幕的远近，进行排序'。",
+                "RelationElement": "核心实体: 模型, 容差交点; 操作: 排序选择集; 业务规则: Case3排序逻辑; 数据: 距离数据完整性; 状态: 选择集排序状态。",
+                "matchedMethod": "判定表",
+                "matchConfidence": "高",
+                "matchReason": "排序行为由Case3条件控制，判定表可系统验证条件组合下的输出规则"
+            },
+            {
+                "originalRequirement": "在拾取射线既包含真实相交又包含容差相交时（Case3），默认高亮模型为容差交点距离屏幕最近的三维模型。",
+                "MFQ_block": "F",
+                "priority": "P1",
+                "Reason": "需求文档四、Case3排序规则描述：'默认高亮的模型为：容差交点距离屏幕最近的三维模型'。",
+                "RelationElement": "核心实体: 模型, 高亮状态; 操作: 高亮模型; 功能交互: Case3排序与高亮集成; 状态: 高亮状态变迁; 业务规则: 默认高亮规则。",
+                "matchedMethod": "UI验证测试",
+                "matchConfidence": "高",
+                "matchReason": "需求针对UI元素（高亮状态）的视觉反馈，UI验证测试直接校验界面表现"
+            },
+            {
+                "originalRequirement": "计算拾取射线与三维模型的容差交点时，选取距离拾取射线最近的点作为唯一交点。",
+                "MFQ_block": "M",
+                "priority": "P1",
+                "Reason": "需求文档三、当前行为描述和四、期望行为描述：'选取距离拾取射线最近的点，作为该模型的容差交点'。",
+                "RelationElement": "核心实体: 容差交点; 操作: 计算交点; 业务规则: 交点计算规则; 数据: 点数据准确性; 外部依赖: 射线构造逻辑。",
+                "matchedMethod": "边界值",
+                "matchConfidence": "高",
+                "matchReason": "需求涉及距离计算边界（最近点），边界值法专注验证数值边界场景"
+            },
+            {
+                "originalRequirement": "在用户操作中，精确拾取几何点（如墙端点、门中心）时，确保拾取行为不捕捉被隐藏或遮挡的模型。",
+                "MFQ_block": "F",
+                "priority": "P0",
+                "Reason": "需求文档二、业务场景：'用户需要精确地绘制线、添加尺寸标注等，避免捕捉到被隐藏或被上层构件遮挡的模型几何体'；相关信息：用户痛点包括标注错误和效率低下。",
+                "RelationElement": "核心实体: 几何点, 隐藏模型; 操作: 拾取操作; 功能交互: 视图与拾取集成; 业务规则: 遮挡处理规则; 下游操作: 绘图或标注。",
+                "matchedMethod": "UI验证测试",
+                "matchConfidence": "高",
+                "matchReason": "需求聚焦用户交互行为（精确拾取）和UI反馈（不捕捉隐藏元素），UI验证测试验证操作与视觉一致性"
+            }
+        ]
+    },
+    {
+        "module": "视图控制模块",
+        "moduleDescription": "管理视图可见性设置对拾取行为的影响，确保视图配置正确传递到拾取逻辑",
+        "recommendedMethod": "因子表",
+        "recommendationReason": "需求点涉及多因子组合（视图设置、模型状态），因子表高效覆盖参数交互场景",
+        "requirements": [
+            {
+                "originalRequirement": "应用视图可见性/图形覆盖设置（如关闭楼层、类别构件）时，影响拾取射线的模型相交结果。",
+                "MFQ_block": "I",
+                "priority": "P1",
+                "Reason": "需求文档二、业务场景：'视图经过了可见性/图形覆盖设置'；相关信息：测试环境需模拟视图设置。",
+                "RelationElement": "核心实体: 视图设置, 模型; 操作: 应用覆盖设置; 接口: 视图与拾取模块交互; 外部依赖: 视图配置数据; 状态: 视图状态变化。",
+                "matchedMethod": "因子表",
+                "matchConfidence": "高",
+                "matchReason": "需求涉及多参数（视图设置类型、模型状态）组合影响结果，因子表优化多因子交互测试"
+            }
+        ]
+    },
+    {
+        "module": "选择集管理模块",
+        "moduleDescription": "处理选择集初始化和状态更新逻辑，确保集合状态正确响应拾取结果",
+        "recommendedMethod": "状态转换图法",
+        "recommendationReason": "需求点核心是状态变迁（空到填充），状态转换图法直接建模生命周期变化",
+        "requirements": [
+            {
+                "originalRequirement": "选择集初始化时，确保集合为空或根据当前拾取射线结果正确更新。",
+                "MFQ_block": "M",
+                "priority": "P2",
+                "Reason": "需求文档三、当前行为描述和四、期望行为描述隐含选择集初始化逻辑；名词解释：'选择集就是用户选中的对象集合'。",
+                "RelationElement": "核心实体: 选择集; 操作: 初始化选择集; 状态: 选择集从空到填充; 业务规则: 集合更新规则; 数据: 集合数据一致性。",
+                "matchedMethod": "状态转换图法",
+                "matchConfidence": "高",
+                "matchReason": "需求明确状态变迁（空→填充），状态转换图法专精状态驱动系统验证"
+            }
+        ]
+    },
+    {
+        "module": "接口参数模块",
+        "moduleDescription": "验证用户输入（如鼠标事件）到内部参数的准确传递，确保输入数据完整性",
+        "recommendedMethod": "边界值",
+        "recommendationReason": "需求点聚焦参数边界（光标位置、容差值），边界值法针对输入域验证最有效",
+        "requirements": [
+            {
+                "originalRequirement": "通过用户界面（鼠标点击）构造拾取射线时，测试参数传递（如光标位置、容差值）的准确性。",
+                "MFQ_block": "I",
+                "priority": "P1",
+                "Reason": "接口设计文档：'验收拾取行为: 通过图示验证拾取行为'；相关信息：测试工具需模拟鼠标点击。",
+                "RelationElement": "核心实体: 拾取射线; 操作: 构造射线; 接口: 用户输入与内部处理; 外部依赖: 鼠标事件处理; 数据: 参数数据完整性。",
+                "matchedMethod": "边界值",
+                "matchConfidence": "高",
+                "matchReason": "需求针对参数（光标位置）的边界准确性，边界值法专注输入域边界验证"
+            }
+        ]
+    },
+    {
+        "module": "性能验证模块",
+        "moduleDescription": "测试拾取操作的响应时效性，确保符合性能指标",
+        "recommendedMethod": "边界值",
+        "recommendationReason": "需求点核心是时间边界（响应时间），边界值法直接验证极值场景",
+        "requirements": [
+            {
+                "originalRequirement": "测试拾取操作的响应时间，确保在用户交互中符合性能指标（如毫秒级响应）。",
+                "MFQ_block": "Q",
+                "priority": "P2",
+                "Reason": "SFDIPOT Time维度分析；相关信息：用户关注效率，痛点包括操作效率低下；测试需考虑性能。",
+                "RelationElement": "核心实体: 拾取操作; 操作: 计算和排序; 质量属性: 响应时间; 时间: 并发用户场景; 外部依赖: 系统资源。",
+                "matchedMethod": "边界值",
+                "matchConfidence": "中",
+                "matchReason": "需求涉及时间边界（毫秒级），边界值法可测试响应时间极值，但需结合性能工具"
+            }
+        ]
+    },
+    {
+        "module": "测试验证模块",
+        "moduleDescription": "通过可视化工具验证拾取行为，确保测试结果可观测且符合预期",
+        "recommendedMethod": "UI验证测试",
+        "recommendationReason": "需求点依赖图示元素（实线、虚线）验证，UI验证测试直接匹配视觉需求",
+        "requirements": [
+            {
+                "originalRequirement": "通过图示验证拾取行为，使用实线代表拾取射线、虚线代表容差范围、数字序号表示选择集内结果排序，以确认符合期望行为。",
+                "MFQ_block": "Q",
+                "priority": "P0",
+                "Reason": "验收用例部分：'通过图示验证拾取行为'；接口设计文档：'验收拾取行为: 通过图示验证'。",
+                "RelationElement": "核心实体: 图示元素; 操作: 验证行为; 质量属性: 准确性; 下游操作: 生成测试报告; 外部依赖: 测试工具可视化功能。",
+                "matchedMethod": "UI验证测试",
+                "matchConfidence": "高",
+                "matchReason": "需求明确要求验证视觉元素（实线、虚线、序号），UI验证测试专精布局和内容一致性"
+            }
+        ]
+    }
+]

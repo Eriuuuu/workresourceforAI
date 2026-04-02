@@ -1,0 +1,40 @@
+{
+  "extends": "@vue/tsconfig/tsconfig.dom.json",
+  "include": [
+    "env.d.ts",                  //环境变量类型定义
+    "src/**/*",                  // src目录下所有文件，**/*：递归匹配所有子目录中的文件
+    "src/**/*.vue",              // 所有Vue单文件组件
+    "auto-imports.d.ts",         // 自动导入的类型声明
+    "components.d.ts"            // 组件自动导入的类型声明
+  ],
+  "exclude": [
+    "src/**/__tests__/*",         // 测试文件
+    "src/**/__mocks__/*",         // 模拟数据文件
+    "dist",                       // 构建输出目录
+    "node_modules"                // 依赖包目录
+  ],
+  "compilerOptions": { 
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",           
+    "composite": true,            // 启用项目引用，支持增量编译
+    "baseUrl": ".",                //设置基础目录，用于解析非相对模块导入
+    "paths": {
+      "@/*": ["./src/*"],
+      "#/*": ["./types/*"]        //路径映射，创建导入别名
+    },
+    "types": ["node", "vite/client"], //包含的全局类型定义包：Node.js API 类型，Vite 特有的类型（如 import.meta.env）
+    "strict": true,                    //启用所有严格类型检查选项
+    "noUnusedLocals": false,            //是否报告未使用的局部变量（设为 false 更宽松）
+    "noUnusedParameters": false,
+    "noImplicitReturns": true,          //检查函数所有路径都有返回值
+    "noFallthroughCasesInSwitch": true,    //防止 switch 语句 case 穿透
+    "useDefineForClassFields": true,
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],        //包含的 JavaScript 库定义
+    "skipLibCheck": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "preserve"
+  }
+}

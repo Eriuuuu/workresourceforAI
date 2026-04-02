@@ -1,0 +1,214 @@
+[
+    {
+        "module": "组织查询管理",
+        "moduleDescription": "处理组织查询功能的核心逻辑，包括参数过滤、状态管理、响应结构验证及边界处理",
+        "recommendedMethod": "等价类",
+        "recommendationReason": "模块内多数需求涉及参数输入范围（如enable值、默认参数）和状态验证，等价类方法能系统覆盖有效/无效值组合，确保过滤规则完整性",
+        "requirements": [
+            {
+                "originalRequirement": "传入多个组织ID（orgIds）查询指定节点的直接下级组织，返回以orgId为key的子节点列表",
+                "MFQ_block": "M",
+                "priority": "P0",
+                "Reason": "需求文档：'传入多个组织id，可一次性查询多个组织的下级组织，只查询指定节点的下级组织'",
+                "RelationElement": "核心实体：组织；操作：查询下级组织；业务规则：支持批量orgIds输入；外部依赖：MySQL数据库tenant_org_v3.t_org",
+                "matchedMethod": "等价类",
+                "matchConfidence": "高",
+                "matchReason": "涉及批量输入参数测试，需划分有效orgIds（存在/不存在）和无效格式等价类"
+            },
+            {
+                "originalRequirement": "当enable=1时，过滤并只返回启用状态（enable=1）的组织",
+                "MFQ_block": "M",
+                "priority": "P0",
+                "Reason": "需求文档：'enable为int型，可指定只返回启用的组织（enable=1）'",
+                "RelationElement": "核心实体：组织；状态：启用状态；业务规则：enable值控制过滤；数据：确保返回数据enable字段为1",
+                "matchedMethod": "等价类",
+                "matchConfidence": "高",
+                "matchReason": "enable参数值过滤场景，需覆盖有效值（1）的等价类验证"
+            },
+            {
+                "originalRequirement": "当enable=0时，过滤并只返回停用状态（enable=0）的组织",
+                "MFQ_block": "M",
+                "priority": "P0",
+                "Reason": "需求文档：'enable为int型，可指定只返回停用的组织（enable=0）'",
+                "RelationElement": "核心实体：组织；状态：停用状态；业务规则：enable值控制过滤；数据：确保返回数据enable字段为0",
+                "matchedMethod": "等价类",
+                "matchConfidence": "高",
+                "matchReason": "enable参数值过滤场景，需覆盖有效值（0）的等价类验证"
+            },
+            {
+                "originalRequirement": "当enable=null或未传递时，不过滤并返回所有组织（包括启用和停用状态）",
+                "MFQ_block": "M",
+                "priority": "P0",
+                "Reason": "需求文档：'当这个字段不带时（enable=null），表示不过滤，返回停用和非停用的组织'",
+                "RelationElement": "核心实体：组织；状态：所有状态；业务规则：默认无过滤；数据：确保返回数据包含所有enable值",
+                "matchedMethod": "等价类",
+                "matchConfidence": "高",
+                "matchReason": "enable参数默认行为测试，需覆盖未传参/传null的等价类"
+            },
+            {
+                "originalRequirement": "当productCode参数未传递时，使用默认值true（包含局指项目）",
+                "MFQ_block": "M",
+                "priority": "P1",
+                "Reason": "需求文档请求参数：'productCode Body Boolean 否 默认值 true'",
+                "RelationElement": "操作：参数默认处理；业务规则：默认值逻辑；数据：影响查询结果",
+                "matchedMethod": "等价类",
+                "matchConfidence": "高",
+                "matchReason": "布尔参数默认值测试，需覆盖参数存在/缺失的等价类"
+            },
+            {
+                "originalRequirement": "当moduleCode参数未传递时，使用默认值false（不包组织岗位）",
+                "MFQ_block": "M",
+                "priority": "P1",
+                "Reason": "需求文档请求参数：'moduleCode Body Boolean 否 默认值 false'",
+                "RelationElement": "操作：参数默认处理；业务规则：默认值逻辑；数据：影响查询结果",
+                "matchedMethod": "等价类",
+                "matchConfidence": "高",
+                "matchReason": "布尔参数默认值测试，需覆盖参数存在/缺失的等价类"
+            },
+            {
+                "originalRequirement": "处理excludeTypes参数，排除指定组织类型",
+                "MFQ_block": "M",
+                "priority": "P1",
+                "Reason": "需求文档请求参数：'excludeTypes Body List 否 排除组织类型'",
+                "RelationElement": "核心实体：组织；操作：类型过滤；业务规则：基于excludeTypes值；外部依赖：组织类型参考文档",
+                "matchedMethod": "等价类",
+                "matchConfidence": "高",
+                "matchReason": "列表型参数过滤，需划分有效类型值、无效类型值、空列表的等价类"
+            },
+            {
+                "originalRequirement": "验证响应数据结构，以查询的orgId为key，子节点列表为value",
+                "MFQ_block": "M",
+                "priority": "P1",
+                "Reason": "需求文档响应示例：'查询的orgId为KEY,子节点列表为value'",
+                "RelationElement": "数据：结构完整性；业务规则：响应格式；下游操作：懒加载树场景使用",
+                "matchedMethod": "等价类",
+                "matchConfidence": "中",
+                "matchReason": "响应结构验证需覆盖不同orgId输入下的输出格式等价类"
+            },
+            {
+                "originalRequirement": "验证响应字段isLeaf正确表示是否叶节点（isLeaf=true为叶节点）",
+                "MFQ_block": "M",
+                "priority": "P2",
+                "Reason": "需求文档响应示例：'isLeaf:是否叶节点'",
+                "RelationElement": "核心实体：组织；状态：叶节点状态；业务规则：isLeaf基于数据；数据一致性",
+                "matchedMethod": "等价类",
+                "matchConfidence": "高",
+                "matchReason": "状态字段验证需覆盖叶节点/非叶节点的等价类取值"
+            },
+            {
+                "originalRequirement": "测试enable与excludeTypes参数组合过滤行为",
+                "MFQ_block": "F",
+                "priority": "P1",
+                "Reason": "相关信息TestItem：'测试重点在组合测试（enable与excludeTypes等参数交互）'",
+                "RelationElement": "功能交互：参数组合；业务规则：多重过滤逻辑；数据：过滤准确性",
+                "matchedMethod": "因子表",
+                "matchConfidence": "高",
+                "matchReason": "多参数组合场景适用因子表法，可高效覆盖enable与excludeTypes的双因子交互组合"
+            },
+            {
+                "originalRequirement": "测试orgIds为空列表时的边界场景，返回空或错误响应",
+                "MFQ_block": "M",
+                "priority": "P2",
+                "Reason": "相关信息TestItem：'边界值（如空orgIds列表）'",
+                "RelationElement": "操作：边界处理；业务规则：空输入逻辑；数据：空结果验证",
+                "matchedMethod": "边界值",
+                "matchConfidence": "高",
+                "matchReason": "空输入边界测试是边界值法的典型场景"
+            },
+            {
+                "originalRequirement": "处理enable参数无效值（如非0,1,null）时的错误响应",
+                "MFQ_block": "M",
+                "priority": "P2",
+                "Reason": "需求文档：'enable为int型'；隐含业务规则需显式化",
+                "RelationElement": "操作：错误处理；业务规则：参数值验证；数据：边界值测试",
+                "matchedMethod": "边界值",
+                "matchConfidence": "高",
+                "matchReason": "无效参数值测试需覆盖边界外值（如-1,2）"
+            }
+        ]
+    },
+    {
+        "module": "权限验证管理",
+        "moduleDescription": "处理用户权限认证逻辑，包括权限状态验证和错误令牌处理",
+        "recommendedMethod": "等价类",
+        "recommendationReason": "模块聚焦权限状态值（authType）和令牌有效性验证，等价类法能完整覆盖有效/无效值组合",
+        "requirements": [
+            {
+                "originalRequirement": "验证响应中authType字段正确表示用户权限（authType=1为有权限，authType=0为无权限）",
+                "MFQ_block": "M",
+                "priority": "P1",
+                "Reason": "需求文档响应示例：'authType:1为有权限，0为无权限'；相关信息TestItem：'用户关注权限验证'",
+                "RelationElement": "核心实体：用户、组织；操作：权限验证；业务规则：authType基于用户权限；外部依赖：Authorization token验证",
+                "matchedMethod": "等价类",
+                "matchConfidence": "高",
+                "matchReason": "权限状态字段需划分有效值（0,1）和无效值的等价类测试"
+            },
+            {
+                "originalRequirement": "处理无效Authorization token，返回状态码401和错误响应{\"error\":\"invalid_token\"}",
+                "MFQ_block": "M",
+                "priority": "P0",
+                "Reason": "需求文档异常场景：'传递错误的token，响应状态码401'",
+                "RelationElement": "核心实体：用户；操作：错误处理；业务规则：无效token触发401；外部依赖：认证服务",
+                "matchedMethod": "等价类",
+                "matchConfidence": "高",
+                "matchReason": "令牌有效性测试需覆盖有效令牌/无效令牌的等价类划分"
+            }
+        ]
+    },
+    {
+        "module": "数据质量验证管理",
+        "moduleDescription": "确保数据一致性、性能及环境兼容性的质量属性验证",
+        "recommendedMethod": "因子表",
+        "recommendationReason": "模块包含多环境兼容性测试，因子表法可优化覆盖环境组合；其他质量属性点作为补充",
+        "requirements": [
+            {
+                "originalRequirement": "验证数据一致性，响应数据与MySQL数据库tenant_org_v3.t_org匹配",
+                "MFQ_block": "Q",
+                "priority": "P1",
+                "Reason": "需求文档数据存储：'MYSQL tenant_org_v3 t_org'；相关信息TestItem：'数据一致性（对比数据库）'",
+                "RelationElement": "数据：准确性、完整性；外部依赖：MySQL数据库；操作：数据查询",
+                "matchedMethod": "无合适建模方法",
+                "matchConfidence": "低",
+                "matchReason": "方法库无直接匹配数据库对比的测试技术，需自定义验证"
+            },
+            {
+                "originalRequirement": "测试批量查询性能，如响应时间在可接受范围",
+                "MFQ_block": "Q",
+                "priority": "P2",
+                "Reason": "相关信息TestItem：'性能测试（批量查询）'；典型应用场景：懒加载树动态加载",
+                "RelationElement": "时间：性能指标；操作：批量处理；平台：环境影响",
+                "matchedMethod": "无合适建模方法",
+                "matchConfidence": "低",
+                "matchReason": "方法库无性能测试专用方法，需结合性能监控工具实施"
+            },
+            {
+                "originalRequirement": "测试在网关环境下的兼容性，确保接口在不同平台运行",
+                "MFQ_block": "Q",
+                "priority": "P3",
+                "Reason": "需求文档接口分类：'网关'；相关信息Equipment&Tools：'测试环境需模拟网关环境'",
+                "RelationElement": "平台：兼容性；外部依赖：网关环境；操作：环境适配",
+                "matchedMethod": "因子表",
+                "matchConfidence": "中",
+                "matchReason": "多环境兼容性测试适用因子表法，可覆盖网关/非网关环境的组合"
+            }
+        ]
+    },
+    {
+        "module": "用户操作流程管理",
+        "moduleDescription": "模拟端到端用户操作场景，验证业务流程完整性",
+        "recommendedMethod": "流程图",
+        "recommendationReason": "懒加载树场景涉及多步骤操作序列，流程图法能完整建模用户操作路径",
+        "requirements": [
+            {
+                "originalRequirement": "模拟懒加载树场景，验证用户操作流程和结果展示",
+                "MFQ_block": "O",
+                "priority": "P2",
+                "Reason": "需求文档典型应用场景：'查询用户在某个产品或者模块下有权限的组织懒加载树'",
+                "RelationElement": "操作：用户易用性；业务规则：懒加载逻辑；下游操作：树结构动态加载",
+                "matchedMethod": "流程图",
+                "matchConfidence": "高",
+                "matchReason": "端到端用户操作流程是流程图法的典型应用场景"
+            }
+        ]
+    }
+]
