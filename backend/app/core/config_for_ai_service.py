@@ -11,9 +11,7 @@ class APISettings(BaseSettings):
     glodonai_host: Optional[str] = Field(default="https://copilot.glodon.com", env ="GLODONAI_HOST")
     glodonai_get_token_url: Optional[str] = Field(default="https://copilot.glodon.com/api/auth/v1/access-token", env ="GLODONAI_GET_TOKEN_URL")
     glodonai_llm_url: Optional[str] = Field(default="https://copilot.glodon.com/api/cvforce/aishop/v1/chat/completions", env ="GLODONAI_LLM_URL")
-    # cohere_api_key: Optional[str] = Field(default="", env ="COHERE_API_KEY")
-    glodonai_llm_model: Optional[str] = Field(default="Afcvppqsx6zyw", env ="GLODONAI_LLM_MODEL")
-    # llmodel_name: str = Field(default="gpt-3.5-turbo-16k", env="LLMODEL_NAME")
+    glodonai_llm_model: Optional[str] = Field(default="Aswhlbydjge0c", env ="GLODONAI_LLM_MODEL")
     glodonai_embedding_url: str = Field(default="https://copilot.glodon.com/api/cvforce/aishop/v1/embeddings", env="GLODONAI_EMBEDDING_URL")
 
 class DatabaseSettings(BaseSettings):

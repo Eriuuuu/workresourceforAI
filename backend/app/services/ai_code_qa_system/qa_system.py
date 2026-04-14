@@ -20,7 +20,7 @@ from langchain.callbacks.manager import CallbackManagerForLLMRun
 class GlodonAIChatModel(BaseChatModel):
     """Glodon AI聊天模型封装"""
     
-    model_name: str = "Arulkqtcfw04k"
+    model_name: str = "Aswhlbydjge0c"
     base_url: str = "https://copilot.glodon.com/api/cvforce/aishop/v1/chat/completions"
     api_key: str 
     temperature: float = 0.5
@@ -248,7 +248,7 @@ class CodeAwareQASystem:
         
         # 初始化LangChain组件
         self.llm = GlodonAIChatModel(
-            model_name=getattr(config.api, 'glodonai_llm_model', 'Arulkqtcfw04k'),
+            model_name=getattr(config.api, 'glodonai_llm_model', 'Aswhlbydjge0c'),
             api_key=api_token,
             temperature=0.1,
             max_tokens=8000,
@@ -436,7 +436,7 @@ class GlodonBaseLLM:
         
         # 实例化模型
         self.llm = GlodonAIChatModel(
-            model_name=getattr(config.api, 'glodonai_llm_model', 'Arulkqtcfw04k'),
+            model_name=getattr(config.api, 'glodonai_llm_model', 'Aswhlbydjge0c'),
             api_key=api_token,
             temperature=0.1,
             max_tokens=8000,
