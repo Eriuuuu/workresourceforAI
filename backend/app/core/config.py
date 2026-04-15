@@ -24,7 +24,7 @@ class Settings(BaseSettings):
 
     # 数据库配置
     MONGODB_URL : str =Field(default= "mongodb://10.5.67.100:27017", env = "MONGODB_URL")
-    DATABASE_NAME : str = Field(default="apiinfo", env ="DATABASE_NAME")
+    DATABASE_NAME : str = Field(default="enterprise_app", env ="DATABASE_NAME")
 
     # MongoDB配置
     MONGO_ROOT_USERNAME: str= Field(default="admin",env="MONGO_ROOT_USERNAME") 

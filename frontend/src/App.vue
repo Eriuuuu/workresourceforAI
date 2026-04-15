@@ -4,12 +4,12 @@
   </div>
 </template>
 
-<script setup lang="ts">  //初始化逻辑
+<script setup lang="ts">
 import { useAuthStore } from '@/stores/auth'
 
-// 应用启动时检查认证状态
+// 应用启动时检查认证状态（忽略 Promise，由路由守卫统一管理）
 const authStore = useAuthStore()
-authStore.checkAuth()
+authStore.checkAuth().catch(() => {})
 </script>
 
 <style lang="scss">

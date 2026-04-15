@@ -92,13 +92,13 @@ async def initialize_system(
         _qa_system_instance = LangChainCodeQASystem(config)
         
         # 初始化系统
-        _qa_system_instance.initialize(force_rebuild=request.force_rebuild)
+        await asyncio.to_thread(_qa_system_instance.initialize, force_rebuild=request.force_rebuild)
         
         # 生成系统ID
         system_id = str(uuid.uuid4())
         
         # 获取系统统计信息
-        system_stats = _qa_system_instance.get_system_status()
+        system_stats = await asyncio.to_thread(_qa_system_instance.get_system_status)
         
         logger.info(f"AI问答系统初始化成功，系统ID: {system_id}")
         
@@ -148,7 +148,7 @@ async def ask_question(
             logger.warning("流式响应暂未完全实现，使用普通响应")
         
         # 调用QA系统提问
-        result = qa_system.ask_question(request.question)
+        result = await asyncio.to_thread(qa_system.ask_question, request.question)
         
         # 更新会话统计
         session['question_count'] += 1
@@ -256,10 +256,10 @@ async def get_session_info(
         session = get_session(session_id)
         
         # 获取系统状态
-        system_status = qa_system.get_system_status()
+        system_status = await asyncio.to_thread(qa_system.get_system_status)
         
         # 获取对话历史
-        conversation_history = qa_system.get_conversation_history() if hasattr(qa_system, 'get_conversation_history') else []
+        conversation_history = await asyncio.to_thread(qa_system.get_conversation_history) if hasattr(qa_system, 'get_conversation_history') else []
         
         return SessionInfo(
             session_id=session_id,
@@ -290,7 +290,7 @@ async def get_all_sessions(
             # 获取对话历史（这里简化处理，实际可能需要为每个会话单独存储）
             conversation_history = []
             if qa_system.qa_system:
-                conversation_history = qa_system.qa_system.get_conversation_history()
+                conversation_history = await asyncio.to_thread(qa_system.qa_system.get_conversation_history)
             
             sessions_info.append(SessionInfo(
                 session_id=session_id,
@@ -298,7 +298,7 @@ async def get_all_sessions(
                 last_active=session_data['last_active'],
                 question_count=session_data['question_count'],
                 conversation_history_count=len(conversation_history),
-                system_status=qa_system.get_system_status()
+                system_status=await asyncio.to_thread(qa_system.get_system_status)
             ))
         
         return sessions_info
@@ -333,7 +333,7 @@ async def get_system_status(
 ):
     """获取系统状态"""
     try:
-        system_status = qa_system.get_system_status()
+        system_status = await asyncio.to_thread(qa_system.get_system_status)
         
         return SystemStatus(
             initialized=system_status.get('initialized', False),
@@ -362,7 +362,7 @@ async def debug_retrieval(
         start_time = time.time()
         
         # 调用调试检索
-        debug_result = qa_system.debug_retrieval(request.question)
+        debug_result = await asyncio.to_thread(qa_system.debug_retrieval, request.question)
         
         # 提取文件信息
         retrieved_files = []
@@ -395,7 +395,7 @@ async def clear_conversation_history(
 ):
     """清空对话历史"""
     try:
-        qa_system.clear_conversation_history()
+        await asyncio.to_thread(qa_system.clear_conversation_history)
         return {"success": True, "message": "对话历史已清空"}
     except Exception as e:
         logger.error(f"清空对话历史失败: {e}")
@@ -409,7 +409,7 @@ async def rebuild_index(
 ):
     """重建索引"""
     try:
-        qa_system.rebuild_index()
+        await asyncio.to_thread(qa_system.rebuild_index)
         return {
             "success": True,
             "message": "索引重建完成",

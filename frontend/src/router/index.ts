@@ -5,12 +5,6 @@ const router = createRouter({
   history: createWebHistory(),
   routes: [
     {
-      path: '/',
-      name: 'home',
-      component: () => import('@/views/HomeView.vue'),
-      meta: { requiresAuth: false }
-    },
-    {
       path: '/login',
       name: 'login',
       component: () => import('@/views/LoginView.vue'),
@@ -23,37 +17,52 @@ const router = createRouter({
       meta: { requiresGuest: true }
     },
     {
-      path: '/layout',
-      name: 'layout',
+      path: '/',
       component: () => import('@/layouts/DefaultLayout.vue'),
-      meta: { requiresGuest: true }
-    },
-    {
-      path: '/test11',
-      name: 'test11',
-      component: () => import('@/views/interpolation.vue'),
-      meta: { requiresAuth: false }
-    },
-    {
-      path: '/TextcasesGen',
-      name: 'TextcasesGen',
-      component: () => import('@/views/TextcasesGen.vue'),
-      meta: { requiresAuth: false }
+      meta: { requiresAuth: true },
+      children: [
+        {
+          path: '',
+          redirect: '/TextcasesGen'
+        },
+        {
+          path: 'TextcasesGen',
+          name: 'TextcasesGen',
+          component: () => import('@/views/TextcasesGen.vue'),
+          meta: { requiresAuth: true }
+        },
+        {
+          path: 'ai-chat',
+          name: 'ai-chat',
+          component: () => import('@/views/AiChatView.vue'),
+          meta: { requiresAuth: true, fullBleed: true }
+        },
+        {
+          path: 'profile',
+          name: 'profile',
+          component: () => import('@/views/ProfileView.vue'),
+          meta: { requiresAuth: true }
+        },
+        {
+          path: 'users',
+          name: 'users',
+          component: () => import('@/views/UserManagementView.vue'),
+          meta: { requiresAuth: true }
+        },
+        {
+          path: 'test11',
+          name: 'test11',
+          component: () => import('@/views/interpolation.vue'),
+          meta: { requiresAuth: true }
+        }
+      ]
     }
-    // {
-    //   path: '/profile',
-    //   name: 'profile',
-    //   component: () => import('@/views/ProfileView.vue'),
-    //   meta: { requiresAuth: true }
-    // }
   ]
 })
 
-// 路由守卫，用于权限控制
 router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore()
-  
-  // 检查是否需要认证
+
   if (to.meta.requiresAuth) {
     if (!authStore.isAuthenticated) {
       const isAuthenticated = await authStore.checkAuth()
@@ -63,13 +72,12 @@ router.beforeEach(async (to, from, next) => {
       }
     }
   }
-  
-  // 检查是否要求未认证（如登录页）
+
   if (to.meta.requiresGuest && authStore.isAuthenticated) {
-    next({ name: 'home' })
+    next({ path: '/TextcasesGen' })
     return
   }
-  
+
   next()
 })
 

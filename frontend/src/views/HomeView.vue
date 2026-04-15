@@ -3,8 +3,9 @@
     <header class="header">
       <h1>企业级应用</h1>
       <nav>
-        <router-link to="/users">用户管理</router-link>
-        <router-link to="/profile">个人资料</router-link>
+        <span class="health-badge" :class="healthStatus">
+          {{ healthText }}
+        </span>
         <button @click="handleLogout" class="logout-button">退出登录</button>
       </nav>
     </header>
@@ -23,6 +24,10 @@
             <h3>注册时间</h3>
             <p>{{ formatDate(authStore.user?.created_at) }}</p>
           </div>
+          <div class="stat-card">
+            <h3>邮箱</h3>
+            <p>{{ authStore.user?.email }}</p>
+          </div>
         </div>
       </div>
     </main>
@@ -30,11 +35,40 @@
 </template>
 
 <script setup lang="ts">
+import { ref, computed, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import { authApi, type HealthResponse } from '@/api/auth'
 import { useRouter } from 'vue-router'
 
 const authStore = useAuthStore()
 const router = useRouter()
+
+const healthInfo = ref<HealthResponse | null>(null)
+const healthError = ref(false)
+
+const healthStatus = computed(() => {
+  if (healthError.value) return 'unhealthy'
+  return healthInfo.value ? 'healthy' : 'checking'
+})
+
+const healthText = computed(() => {
+  if (healthError.value) return '服务异常'
+  if (!healthInfo.value) return '检测中...'
+  return '服务正常'
+})
+
+const checkHealth = async () => {
+  try {
+    healthInfo.value = await authApi.healthCheck()
+    healthError.value = false
+  } catch {
+    healthError.value = true
+  }
+}
+
+onMounted(() => {
+  checkHealth()
+})
 
 const handleLogout = () => {
   authStore.logout()
@@ -67,6 +101,28 @@ const formatDate = (dateString?: string) => {
   align-items: center;
 }
 
+.health-badge {
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.health-badge.healthy {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.health-badge.unhealthy {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+.health-badge.checking {
+  background-color: #fff3cd;
+  color: #856404;
+}
+
 .logout-button {
   background: #dc3545;
   color: white;
@@ -91,6 +147,7 @@ const formatDate = (dateString?: string) => {
   justify-content: center;
   gap: 2rem;
   margin-top: 2rem;
+  flex-wrap: wrap;
 }
 
 .stat-card {

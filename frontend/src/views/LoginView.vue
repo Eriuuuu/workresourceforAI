@@ -65,7 +65,7 @@ const handleLogin = async () => {
     error.value = ''
     await authStore.login(form)
     const redirect = router.currentRoute.value.query.redirect as string
-    router.push(redirect || '/')
+    router.push(redirect || '/TextcasesGen')
   } catch (err: any) {
     error.value = err.response?.data?.detail || '登录失败，请重试'
   }

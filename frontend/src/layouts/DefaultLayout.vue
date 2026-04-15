@@ -7,31 +7,59 @@
             <router-link to="/">{{ appName }}</router-link>
           </h1>
           <nav class="nav-menu">
+            <router-link to="/TextcasesGen" class="nav-link">用例生成</router-link>
+            <router-link to="/ai-chat" class="nav-link">智能问答</router-link>
             <router-link to="/users" class="nav-link">用户管理</router-link>
             <router-link to="/profile" class="nav-link">个人资料</router-link>
+            <span class="health-badge" :class="healthStatus">{{ healthText }}</span>
             <button @click="handleLogout" class="logout-button">退出登录</button>
           </nav>
         </div>
       </div>
     </header>
     
-    <main class="layout-main">
-      <div class="container">
+    <main class="layout-main" :class="{ 'no-padding': $route.meta.fullBleed }">
+      <div class="container" v-if="!$route.meta.fullBleed">
         <router-view />
       </div>
+      <router-view v-else />
     </main>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { authApi, type HealthResponse } from '@/api/auth'
 
 const router = useRouter()
 const authStore = useAuthStore()
 
 const appName = computed(() => import.meta.env.VITE_APP_NAME)
+
+const healthInfo = ref<HealthResponse | null>(null)
+const healthError = ref(false)
+
+const healthStatus = computed(() => {
+  if (healthError.value) return 'unhealthy'
+  return healthInfo.value ? 'healthy' : 'checking'
+})
+
+const healthText = computed(() => {
+  if (healthError.value) return '服务异常'
+  if (!healthInfo.value) return '检测中...'
+  return '服务正常'
+})
+
+onMounted(async () => {
+  try {
+    healthInfo.value = await authApi.healthCheck()
+    healthError.value = false
+  } catch {
+    healthError.value = true
+  }
+})
 
 const handleLogout = () => {
   authStore.logout()
@@ -109,9 +137,26 @@ const handleLogout = () => {
   }
 }
 
+.health-badge {
+  padding: 0.2rem 0.6rem;
+  border-radius: 10px;
+  font-size: 0.8rem;
+  font-weight: 500;
+
+  &.healthy { background-color: #d4edda; color: #155724; }
+  &.unhealthy { background-color: #f8d7da; color: #721c24; }
+  &.checking { background-color: #fff3cd; color: #856404; }
+}
+
 .layout-main {
   flex: 1;
   padding: 2rem 0;
   background-color: $background-color;
+
+  &.no-padding {
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+  }
 }
 </style>

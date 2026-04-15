@@ -1,5 +1,5 @@
 import { apiClient } from './client'
-import type { ApiResponse, PaginatedResponse, PaginationParams } from '@/types/api'
+import type { User } from './auth'
 
 export interface UpdateUserRequest {
     username?: string
@@ -15,27 +15,22 @@ export interface ChangePasswordRequest {
 }
 
 export const usersApi = {
-    // 获取用户列表
-    async getUsers(params?: PaginationParams & { search?: string }): Promise<PaginatedResponse<User>> {
-        return apiClient.get<PaginatedResponse<User>>('/users', { params })
+    async getUsers(skip: number = 0, limit: number = 100): Promise<User[]> {
+        return apiClient.get<User[]>('/user/', { params: { skip, limit } })
     },
 
-    // 获取用户详情
     async getUserById(userId: string): Promise<User> {
-        return apiClient.get<User>(`/users/${userId}`)
+        return apiClient.get<User>(`/user/${userId}`)
     },
 
-    // 更新用户信息
     async updateUser(userId: string, userData: UpdateUserRequest): Promise<User> {
-        return apiClient.put<User>(`/users/${userId}`, userData)
+        return apiClient.put<User>(`/user/${userId}`, userData)
     },
 
-    // 删除用户
     async deleteUser(userId: string): Promise<void> {
-        return apiClient.delete(`/users/${userId}`)
+        return apiClient.delete(`/user/${userId}`)
     },
 
-    // 修改密码
     async changePassword(passwordData: ChangePasswordRequest): Promise<void> {
         return apiClient.post('/auth/change-password', passwordData)
     }

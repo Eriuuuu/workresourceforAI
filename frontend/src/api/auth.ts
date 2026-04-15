@@ -9,7 +9,7 @@ export interface LoginResponse {
     access_token: string
     token_type: string
     user: User
-    }
+}
 
 export interface User {
     _id: string
@@ -29,16 +29,23 @@ export interface RegisterRequest {
     password: string
 }
 
+export interface HealthResponse {
+    status: string
+    timestamp: number
+    service: string
+    version: string
+}
+
 export const authApi = {
     async login(credentials: LoginRequest): Promise<LoginResponse> {
-        const formData = new FormData()
-        formData.append('username', credentials.username)
-        formData.append('password', credentials.password)
-        
-        return apiClient.post<LoginResponse>('/auth/login', formData, {
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded'
-        }
+        const params = new URLSearchParams()
+        params.append('username', credentials.username)
+        params.append('password', credentials.password)
+
+        return apiClient.post<LoginResponse>('/auth/login', params, {
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }
         })
     },
 
@@ -47,6 +54,10 @@ export const authApi = {
     },
 
     async getCurrentUser(): Promise<User> {
-        return apiClient.get<User>('/users/me')
+        return apiClient.get<User>('/user/me')
+    },
+
+    async healthCheck(): Promise<HealthResponse> {
+        return apiClient.get<HealthResponse>('/health')
     }
 }

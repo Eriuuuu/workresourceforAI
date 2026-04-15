@@ -150,9 +150,9 @@ class GlodonAIChatModel(BaseChatModel):
         run_manager: Optional[CallbackManagerForLLMRun] = None,
         **kwargs,
     ) -> ChatResult:
-        """异步生成回复"""
-        # 简单实现：调用同步方法
-        return self._generate(messages, stop, run_manager, **kwargs)
+        """异步生成回复 - 使用线程池执行同步 HTTP 请求"""
+        import asyncio
+        return await asyncio.to_thread(self._generate, messages, stop, run_manager, **kwargs)
     
     @property
     def _identifying_params(self) -> Dict[str, Any]:

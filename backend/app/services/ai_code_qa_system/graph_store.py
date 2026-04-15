@@ -455,7 +455,7 @@ class GraphDatabaseManager:
                     logger.error("达到最大重试次数，构建失败")
                     raise
                 logger.info(f"等待 {2 ** attempt} 秒后重试...")
-                time.sleep(2 ** attempt)  # 指数退避
+                time.sleep(2 ** attempt)  # 在线程池中运行，不阻塞事件循环
         
         return {}
     
