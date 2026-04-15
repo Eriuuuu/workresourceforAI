@@ -2,7 +2,16 @@ from pydantic_settings import BaseSettings
 from pydantic import Field
 from typing import List, Optional
 import secrets
+import os
 
+# backend 目录的绝对路径（app/core/config.py 的上上级目录）
+BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# 项目根目录（backend 的上级）
+PROJECT_ROOT = os.path.dirname(BACKEND_DIR)
+_ENV_FILE = os.path.join(BACKEND_DIR, ".env")
+# 优先使用 backend/.env，不存在则使用项目根目录的 .env
+if not os.path.exists(_ENV_FILE):
+    _ENV_FILE = os.path.join(PROJECT_ROOT, ".env")
 
 class Settings(BaseSettings):
 
@@ -33,7 +42,7 @@ class Settings(BaseSettings):
     
     # 监控配置
     ENABLE_METRICS: bool = Field(default=True, env="ENABLE_METRICS")
-    PROMETHEUS_MULTIPROC_DIR: str =Field(default="/tmp", env ="PROMETHEUS_MULTIPROC_DIR")
+    PROMETHEUS_MULTIPROC_DIR: str =Field(default=os.path.join(BACKEND_DIR, "prometheus_data"), env ="PROMETHEUS_MULTIPROC_DIR")
     
     # 安全配置
     RATE_LIMIT_PER_MINUTE: int = Field(default=60, env="RATE_LIMIT_PER_MINUTE")
@@ -44,9 +53,10 @@ class Settings(BaseSettings):
     API_V1_STR: str = Field(default="/api/v1", env="API_V1_STR")
 
     class Config:
-        env_file = ".env"
+        env_file = _ENV_FILE
         case_sensitive = True
         use_enum_values = True
+        extra = "ignore"
 
 settings = Settings()
 

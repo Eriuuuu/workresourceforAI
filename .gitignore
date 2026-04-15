@@ -21,17 +21,18 @@ yarn-error.log*
 .npm
 .eslintcache
 
-# Environment variables
-.env
+# Environment variables (only ignore machine-specific overrides)
 .env.local
-.env.production
 
 # Logs
 logs/
 *.log
 
-# IDE
-.vscode/
+# IDE - only ignore personal settings, keep shared configs (launch.json, settings.json)
+.vscode/*
+!.vscode/launch.json
+!.vscode/settings.json
+!.vscode/extensions.json
 .idea/
 *.swp
 *.swo
@@ -42,3 +43,13 @@ Thumbs.db
 
 # Docker
 .docker/
+
+# Build output
+dist/
+dist-ssr/
+
+# Runtime / generated data
+backend/prometheus_data/
+backend/chroma_db/
+*.db
+output_*.json

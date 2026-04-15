@@ -1,0 +1,28 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        
+        {
+            "name": "FastAPI Debug Server (backend)",
+            "type": "debugpy",
+            "request": "launch",
+            "python": "${workspaceFolder}/backend/venv/Scripts/python.exe",
+            "module": "uvicorn",
+            "args": [
+                "app.main:app",
+                "--reload",
+                "--host",
+                "0.0.0.0",
+                "--port",
+                "8000"
+            ],
+            "cwd": "${workspaceFolder}/backend",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONIOENCODING": "utf-8",
+                "PROMETHEUS_MULTIPROC_DIR": "${workspaceFolder}/backend/prometheus_data"
+            }
+        }
+    ]
+}
