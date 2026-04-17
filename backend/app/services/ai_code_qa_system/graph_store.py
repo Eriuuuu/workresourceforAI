@@ -500,6 +500,34 @@ class GraphDatabaseManager:
         except Exception as e:
             logger.error(f"图查询失败: {e}")
             return []
+
+    def search_entities_by_keyword(self, keyword: str, limit: int = 20) -> List[Dict[str, Any]]:
+        """
+        根据关键词模糊搜索图数据库中的实体（名称或签名包含关键词）
+        
+        Args:
+            keyword: 搜索关键词（支持部分匹配）
+            limit: 返回结果上限
+            
+        Returns:
+            匹配的实体列表
+        """
+        query = """
+        MATCH (entity)
+        WHERE entity.name CONTAINS $keyword
+           OR entity.signature CONTAINS $keyword
+        RETURN entity.name as name, labels(entity) as labels,
+               entity.signature as signature, entity.file_path as file_path,
+               entity.type as type
+        LIMIT $limit
+        """
+        try:
+            results = self.graph.run(query, keyword=keyword, limit=limit).data()
+            logger.debug(f"图模糊搜索 keyword='{keyword}' 找到 {len(results)} 个结果")
+            return results
+        except Exception as e:
+            logger.error(f"图模糊搜索失败: {e}")
+            return []
     
     def find_files_containing_entity(self, entity_name: str) -> List[Dict[str, Any]]:
         """

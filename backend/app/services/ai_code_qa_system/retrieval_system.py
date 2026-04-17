@@ -73,21 +73,40 @@ class HybridRetrievalSystem:
         question_lower = question.lower()
         
         # 检测结构搜索的迹象
-        structural_indicators = ['函数', '类', '方法', '调用', '继承', '包含', '定义', '实现']
+        structural_indicators = ['函数', '类', '方法', '调用', '继承', '包含', '定义', '实现',
+                                 '接口', '模块', '服务', '组件', '变量', '属性', '配置']
         structural_keywords = [word for word in structural_indicators if word in question_lower]
         
-        # 检测具体实体查询
+        # 检测具体实体查询（中文模式）
         entity_patterns = [
             r'(\w+)函数',
             r'(\w+)类',
             r'(\w+)方法',
-            r'(\w+)的实现'
+            r'(\w+)的实现',
+            r'(\w+)接口',
+            r'(\w+)模块',
+            r'(\w+)服务',
+            r'(\w+)组件',
         ]
         
         entities = []
         for pattern in entity_patterns:
             matches = re.findall(pattern, question)
             entities.extend(matches)
+        
+        # 提取可能是代码标识符的英文词（驼峰/下划线/帕斯卡命名，长度>=3）
+        code_id_matches = re.findall(r'\b([a-zA-Z][a-zA-Z0-9_]{2,})\b', question)
+        code_stop_words = {
+            'the', 'this', 'that', 'what', 'which', 'who', 'how', 'why', 'when', 'where',
+            'and', 'not', 'but', 'for', 'are', 'was', 'were', 'has', 'had', 'does',
+            'can', 'will', 'with', 'from', 'also', 'just', 'than', 'then', 'into',
+        }
+        code_entities = [
+            w for w in code_id_matches
+            if w.lower() not in code_stop_words
+            and (any(c.isupper() for c in w) or '_' in w)
+        ]
+        entities.extend(code_entities)
         
         if structural_keywords or entities:
             strategy = 'structural_search'
@@ -113,27 +132,50 @@ class HybridRetrievalSystem:
             return []
     
     def _structural_retrieval(self, question: str, intent: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """结构检索"""
+        """结构检索 - 结合精确匹配与模糊搜索"""
         results = []
+        seen_file_entity = set()  # (file_path, entity_name) 去重
         
-        # 基于实体名称搜索
+        # 1. 基于提取的实体名称精确搜索（高优先级）
         for entity in intent['entities']:
-            # 在图数据库中搜索实体
             for entity_type in ['Function', 'Class', 'Struct']:
                 graph_results = self.graph_store.query_related_entities(entity, entity_type)
                 for graph_result in graph_results:
                     if 'file_path' in graph_result and graph_result['file_path']:
+                        key = (graph_result['file_path'], graph_result['name'])
+                        if key not in seen_file_entity:
+                            seen_file_entity.add(key)
+                            results.append({
+                                'file_path': graph_result['file_path'],
+                                'entity_type': entity_type.lower(),
+                                'entity_name': graph_result['name'],
+                                'signature': graph_result.get('signature', ''),
+                                'search_type': 'entity_exact_match'
+                            })
+        
+        # 2. 基于所有提取的关键词进行图数据库模糊搜索
+        all_keywords = list(set(intent.get('keywords', []) + intent.get('structural_keywords', [])))
+        # 按词长降序排列，优先匹配更具体的关键词
+        all_keywords.sort(key=len, reverse=True)
+        for keyword in all_keywords[:10]:  # 限制最多查询 10 个关键词，避免过多查询
+            graph_results = self.graph_store.search_entities_by_keyword(keyword, limit=10)
+            for graph_result in graph_results:
+                file_path = graph_result.get('file_path')
+                if file_path:
+                    key = (file_path, graph_result.get('name', ''))
+                    if key not in seen_file_entity:
+                        seen_file_entity.add(key)
                         results.append({
-                            'file_path': graph_result['file_path'],
-                            'entity_type': entity_type.lower(),
-                            'entity_name': graph_result['name'],
+                            'file_path': file_path,
+                            'entity_type': graph_result.get('type', ''),
+                            'entity_name': graph_result.get('name', ''),
                             'signature': graph_result.get('signature', ''),
-                            'search_type': 'entity_match'
+                            'search_type': 'entity_fuzzy_match',
+                            'search_keyword': keyword,
                         })
         
-        # 基于关键词搜索
+        # 3. 基于结构关键词做向量搜索（补充语义覆盖）
         for keyword in intent['structural_keywords']:
-            # 在向量存储中搜索包含关键词的文档
             try:
                 keyword_results = self.vector_store.similarity_search(keyword, k=5)
                 for doc in keyword_results:
@@ -148,7 +190,7 @@ class HybridRetrievalSystem:
             except Exception as e:
                 logger.error(f"关键词搜索失败: {e}")
         
-        logger.info(f"结构检索找到 {len(results)} 个结果")
+        logger.info(f"结构检索找到 {len(results)} 个结果 (实体精确匹配 + 关键词模糊图搜索 + 向量补充)")
         return results
     
     def _extract_keywords(self, text: str) -> List[str]:

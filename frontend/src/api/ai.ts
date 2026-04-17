@@ -39,12 +39,28 @@ export interface InitializeRequest {
     codebase_path?: string
 }
 
-export interface InitializeResponse {
+export interface InitializeSubmitResponse {
+    task_id: string
+    status: string
+    message: string
+}
+
+export interface InitializeStatusResult {
     success: boolean
     message: string
     system_id?: string
     initialization_time?: string
     stats?: Record<string, any>
+}
+
+export interface InitializeStatusResponse {
+    task_id: string
+    status: 'pending' | 'processing' | 'completed' | 'failed'
+    task_type: string
+    result: InitializeStatusResult | null
+    error: string | null
+    created_at?: string
+    updated_at?: string
 }
 
 export interface QuestionRequest {
@@ -53,7 +69,7 @@ export interface QuestionRequest {
     stream?: boolean
 }
 
-export interface QuestionResponse {
+export interface AskStatusResult {
     success: boolean
     answer?: string
     question: string
@@ -63,6 +79,16 @@ export interface QuestionResponse {
     token_usage?: Record<string, number>
     processing_time: number
     error?: string
+}
+
+export interface AskStatusResponse {
+    task_id: string
+    status: 'pending' | 'processing' | 'completed' | 'failed'
+    task_type: string
+    result: AskStatusResult | null
+    error: string | null
+    created_at?: string
+    updated_at?: string
 }
 
 export interface AiHealthResponse {
@@ -75,12 +101,20 @@ export interface AiHealthResponse {
 }
 
 export const aiApi = {
-    initialize(data?: InitializeRequest): Promise<InitializeResponse> {
-        return request('post', '/aiagent/initialize', data || { force_rebuild: false })
+    initialize(data?: InitializeRequest): Promise<InitializeSubmitResponse> {
+        return request('post', '/aiagent/initialize', data || { force_rebuild: true })
     },
 
-    ask(data: QuestionRequest): Promise<QuestionResponse> {
+    getInitializeStatus(taskId: string): Promise<InitializeStatusResponse> {
+        return request('get', `/aiagent/initialize-status/${taskId}`)
+    },
+
+    ask(data: QuestionRequest): Promise<InitializeSubmitResponse> {
         return request('post', '/aiagent/ask', data)
+    },
+
+    getAskStatus(taskId: string): Promise<AskStatusResponse> {
+        return request('get', `/aiagent/ask-status/${taskId}`)
     },
 
     healthCheck(): Promise<AiHealthResponse> {

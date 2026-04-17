@@ -20,6 +20,8 @@ export const useChatStore = defineStore('chat', () => {
   const loading = ref(false)
   const systemReady = ref(false)
   const initializing = ref(false)
+  const initTaskId = ref('')
+  const askTaskId = ref('')
 
   // 保存一个正在进行的请求 Promise，切换页面回来时复用
   let _pendingRequest: Promise<void> | null = null
@@ -36,7 +38,10 @@ export const useChatStore = defineStore('chat', () => {
     messages.value = []
     sessionId.value = ''
     loading.value = false
+    systemReady.value = false
     initializing.value = false
+    initTaskId.value = ''
+    askTaskId.value = ''
     _pendingRequest = null
   }
 
@@ -46,6 +51,8 @@ export const useChatStore = defineStore('chat', () => {
     loading,
     systemReady,
     initializing,
+    initTaskId,
+    askTaskId,
     setPendingRequest,
     getPendingRequest,
     reset,

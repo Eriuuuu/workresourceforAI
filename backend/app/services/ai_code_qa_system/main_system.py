@@ -37,7 +37,7 @@ class LangChainCodeQASystem:
         self.initialization_time = None
         self.system_stats = {}
     
-    def initialize(self, force_rebuild: bool = False):
+    def initialize(self, force_rebuild: bool = True):
         """初始化系统"""
         logger.info("🚀 初始化基于LangChain的代码问答系统...")
         start_time = time.time()

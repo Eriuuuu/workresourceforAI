@@ -153,7 +153,7 @@
 
 <script setup lang="ts">
 import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
-import { aiApi, type QuestionResponse } from '@/api/ai'
+import { aiApi, type AskStatusResponse } from '@/api/ai'
 import { useChatStore } from '@/stores/chat'
 
 const chatStore = useChatStore()
@@ -175,6 +175,8 @@ const waitElapsed = ref(0)
 const initElapsed = ref(0)
 let waitTimer: ReturnType<typeof setInterval> | null = null
 let initTimer: ReturnType<typeof setInterval> | null = null
+let initPollTimer: ReturnType<typeof setInterval> | null = null
+let askPollTimer: ReturnType<typeof setInterval> | null = null
 
 // 思考提示语循环
 const thinkingTips = [
@@ -277,28 +279,76 @@ const checkSystem = async () => {
 
 const handleInit = async () => {
   chatStore.initializing = true
-  initStatus.value = '正在初始化 AI 系统，加载代码库并构建索引...'
+  chatStore.initTaskId = ''
+  initStatus.value = '正在提交初始化任务...'
   startInitTimer()
 
   try {
-    const res = await aiApi.initialize({ force_rebuild: true })
-    if (res.success) {
-      chatStore.systemReady = true
-      chatStore.messages.push({ role: 'system', content: `系统初始化完成 — ${res.message}`, type: 'success' })
-    } else {
-      chatStore.messages.push({ role: 'system', content: `初始化失败：${res.message}`, type: 'error' })
-    }
+    const res = await aiApi.initialize({ force_rebuild: false })
+    chatStore.initTaskId = res.task_id
+    initStatus.value = '正在初始化 AI 系统，加载代码库并构建索引...'
+    startInitPolling(res.task_id)
   } catch (err: any) {
-    const detail = err.response?.data?.detail || err.code === 'ECONNABORTED'
-      ? '请求超时，服务端响应时间过长，请检查后端日志'
-      : err.message || '未知错误'
+    const detail = err.response?.data?.detail || err.message || '提交初始化任务失败'
     chatStore.messages.push({ role: 'system', content: `初始化异常：${detail}`, type: 'error' })
     chatStore.systemReady = false
-  } finally {
     chatStore.initializing = false
+    chatStore.initTaskId = ''
     stopInitTimer()
     scrollBottom()
   }
+}
+
+// --- 初始化轮询 ---
+
+const POLL_INTERVAL = 3000
+
+const startInitPolling = (taskId: string) => {
+  stopInitPolling()
+  pollInitStatus(taskId)
+  initPollTimer = setInterval(() => pollInitStatus(taskId), POLL_INTERVAL)
+}
+
+const pollInitStatus = async (taskId: string) => {
+  try {
+    const status = await aiApi.getInitializeStatus(taskId)
+
+    if (status.status === 'processing') {
+      initStatus.value = 'AI 系统正在加载代码库并构建索引，请耐心等待...'
+    } else if (status.status === 'completed') {
+      stopInitPolling()
+      chatStore.initializing = false
+      chatStore.initTaskId = ''
+      chatStore.systemReady = true
+      if (status.result?.message) {
+        chatStore.messages.push({ role: 'system', content: `系统初始化完成 — ${status.result.message}`, type: 'success' })
+      }
+      scrollBottom()
+    } else if (status.status === 'failed') {
+      stopInitPolling()
+      chatStore.initializing = false
+      chatStore.initTaskId = ''
+      chatStore.systemReady = false
+      const errorMsg = status.error || '未知错误'
+      chatStore.messages.push({ role: 'system', content: `初始化失败：${errorMsg}`, type: 'error' })
+      scrollBottom()
+    }
+  } catch (err: any) {
+    const httpStatus = err.response?.status
+    if (httpStatus === 404) {
+      stopInitPolling()
+      chatStore.initializing = false
+      chatStore.initTaskId = ''
+      chatStore.systemReady = false
+      chatStore.messages.push({ role: 'system', content: '初始化任务已丢失（服务可能已重启），请重新初始化。', type: 'error' })
+      scrollBottom()
+    }
+  }
+}
+
+const stopInitPolling = () => {
+  if (initPollTimer) { clearInterval(initPollTimer); initPollTimer = null }
+  stopInitTimer()
 }
 
 const handleSend = async () => {
@@ -309,64 +359,98 @@ const handleSend = async () => {
   inputText.value = ''
   if (inputEl.value) inputEl.value.style.height = 'auto'
   chatStore.loading = true
+  chatStore.askTaskId = ''
   startWaitTimer()
   scrollBottom()
 
-  const requestPromise = (async () => {
-    try {
-      const res: QuestionResponse = await aiApi.ask({
-        question,
-        session_id: chatStore.sessionId || undefined,
-      })
-      chatStore.sessionId = res.session_id
+  try {
+    const res = await aiApi.ask({
+      question,
+      session_id: chatStore.sessionId || undefined,
+    })
+    chatStore.askTaskId = res.task_id
+    startAskPolling(res.task_id)
+  } catch (err: any) {
+    const code = err.code || err.response?.status
+    const detail = err.response?.data?.detail || ''
 
-      if (res.success) {
+    if (code === 503 || detail.includes('未初始化')) {
+      chatStore.systemReady = false
+      chatStore.messages.push({ role: 'system', content: 'AI 系统已离线，请重新初始化。', type: 'error' })
+    } else {
+      chatStore.messages.push({
+        role: 'system',
+        content: `提交问题失败：${detail || err.message || '网络错误'}`,
+        type: 'error',
+      })
+    }
+    chatStore.loading = false
+    chatStore.askTaskId = ''
+    stopWaitTimer()
+    scrollBottom()
+  }
+}
+
+// --- 问答轮询 ---
+
+const startAskPolling = (taskId: string) => {
+  stopAskPolling()
+  pollAskStatus(taskId)
+  askPollTimer = setInterval(() => pollAskStatus(taskId), POLL_INTERVAL)
+}
+
+const pollAskStatus = async (taskId: string) => {
+  try {
+    const status: AskStatusResponse = await aiApi.getAskStatus(taskId)
+
+    if (status.status === 'completed' && status.result) {
+      stopAskPolling()
+      chatStore.loading = false
+      chatStore.askTaskId = ''
+      chatStore.sessionId = status.result.session_id
+
+      if (status.result.success) {
         chatStore.messages.push({
           role: 'assistant',
-          content: res.answer || '（未生成回答内容）',
+          content: status.result.answer || '（未生成回答内容）',
           meta: {
-            processing_time: res.processing_time,
-            source_files: res.source_files,
-            files_count: res.files_count,
-            token_usage: res.token_usage,
+            processing_time: status.result.processing_time,
+            source_files: status.result.source_files,
+            files_count: status.result.files_count,
+            token_usage: status.result.token_usage,
           },
         })
       } else {
         chatStore.messages.push({
           role: 'assistant',
-          content: res.error || '回答失败，请重试',
-          meta: { processing_time: res.processing_time, error: res.error },
+          content: status.result.error || '回答失败，请重试',
+          meta: { processing_time: status.result.processing_time, error: status.result.error },
         })
       }
-    } catch (err: any) {
-      const code = err.code || err.response?.status
-      const detail = err.response?.data?.detail || ''
-
-      if (code === 'ECONNABORTED') {
-        chatStore.messages.push({
-          role: 'system',
-          content: '请求超时（5 分钟），大模型生成时间过长，请尝试简化问题或稍后重试。',
-          type: 'error',
-        })
-      } else if (code === 503 || detail.includes('未初始化')) {
-        chatStore.systemReady = false
-        chatStore.messages.push({ role: 'system', content: 'AI 系统已离线，请重新初始化。', type: 'error' })
-      } else {
-        chatStore.messages.push({
-          role: 'assistant',
-          content: `请求失败：${detail || err.message || '网络错误'}`,
-        })
-      }
-    } finally {
+      scrollBottom()
+    } else if (status.status === 'failed') {
+      stopAskPolling()
       chatStore.loading = false
-      chatStore.setPendingRequest(null)
-      stopWaitTimer()
+      chatStore.askTaskId = ''
+      const errorMsg = status.error || '未知错误'
+      chatStore.messages.push({ role: 'system', content: `问答失败：${errorMsg}`, type: 'error' })
       scrollBottom()
     }
-  })()
+  } catch (err: any) {
+    const httpStatus = err.response?.status
+    if (httpStatus === 404) {
+      stopAskPolling()
+      chatStore.loading = false
+      chatStore.askTaskId = ''
+      chatStore.messages.push({ role: 'system', content: '问答任务已丢失（服务可能已重启），请重新提问。', type: 'error' })
+      scrollBottom()
+    }
+  }
+}
 
-  chatStore.setPendingRequest(requestPromise)
-  await requestPromise
+const stopAskPolling = () => {
+  if (askPollTimer) { clearInterval(askPollTimer); askPollTimer = null }
+  stopWaitTimer()
 }
 
 const handleClear = async () => {
@@ -380,11 +464,19 @@ onMounted(() => {
     checkSystem()
   }
 
-  // 如果切回来时仍在等待回复，恢复计时器
-  if (chatStore.loading) {
+  // 如果切回来时仍在等待回复，恢复问答轮询
+  if (chatStore.loading && chatStore.askTaskId) {
+    startWaitTimer()
+    startAskPolling(chatStore.askTaskId)
+  } else if (chatStore.loading) {
     startWaitTimer()
   }
-  if (chatStore.initializing) {
+
+  // 如果切回来时初始化仍在进行，恢复轮询
+  if (chatStore.initializing && chatStore.initTaskId) {
+    startInitTimer()
+    startInitPolling(chatStore.initTaskId)
+  } else if (chatStore.initializing) {
     startInitTimer()
   }
 
@@ -393,9 +485,10 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  // 导航离开时只停计时器，不停止请求（请求继续在后台运行）
+  // 导航离开时停计时器和轮询，后台任务继续运行
   stopWaitTimer()
-  stopInitTimer()
+  stopInitPolling()
+  stopAskPolling()
 })
 </script>
 

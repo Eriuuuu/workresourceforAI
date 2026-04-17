@@ -24,7 +24,7 @@ class DatabaseSettings(BaseSettings):
 
 class SystemSettings(BaseSettings):
     """系统配置"""
-    codebase_path: str = Field(default="J://gbmp//source//GcmpSdk//Db//GcmpModel//GdcLinkModelView", env="CODEBASE_PATH")
+    codebase_path: str = Field(default="J://gbmp//source//GcmpTests", env="CODEBASE_PATH")
     max_context_tokens: int = Field(default=8000, env="MAX_CONTEXT_TOKENS")
     max_files_per_query: int = Field(default=5, env="MAX_FILES_PER_QUERY")
     chunk_size: int = Field(default=2000, env="CHUNK_SIZE")

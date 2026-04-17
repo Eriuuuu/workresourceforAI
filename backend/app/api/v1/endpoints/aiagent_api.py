@@ -15,7 +15,7 @@ from app.models.ai_system_model import (
     ParseDocumentResponse, TestCaseGenRequest, TestCaseGenResponse,
     GraphNodeData, GraphEdgeData, TestCaseItem, TestCaseStep,
     SubmitTaskRequest, SubmitTaskResponse, TaskStatusResponse,
-    InitializeRequest, InitializeResponse, QuestionRequest, QuestionResponse,
+    InitializeRequest, QuestionRequest,
     SessionInfo, SystemStatus, DebugRetrievalRequest, DebugRetrievalResponse,
 )
 from app.services.ai_testcasegen_system.TCGen_base_glodon_llm import GlodonBaseLLM
@@ -308,6 +308,70 @@ def _run_generate_cases_task(task_id: str, requirement_text: str, search_keyword
         _safe_update_task(task_id, {"status": "failed", "error": str(e)})
 
 
+def _run_initialize_task(task_id: str, force_rebuild: bool):
+    """后台线程：执行系统初始化"""
+    global _qa_system_instance
+    try:
+        _safe_update_task(task_id, {"status": "processing"})
+        config = get_config()
+        _qa_system_instance = LangChainCodeQASystem(config)
+        _qa_system_instance.initialize(force_rebuild=force_rebuild)
+        system_stats = _qa_system_instance.get_system_status()
+        _safe_update_task(task_id, {
+            "status": "completed",
+            "result": {
+                "success": True,
+                "message": "AI问答系统初始化成功",
+                "system_id": str(uuid.uuid4()),
+                "initialization_time": datetime.now().isoformat(),
+                "stats": system_stats,
+            },
+        })
+    except Exception as e:
+        logger.error(f"初始化任务 {task_id} 失败: {e}", exc_info=True)
+        _safe_update_task(task_id, {"status": "failed", "error": str(e)})
+
+
+def _run_ask_task(task_id: str, question: str, session_id: str):
+    """后台线程：执行AI问答"""
+    global _qa_system_instance, _active_sessions
+    try:
+        _safe_update_task(task_id, {"status": "processing"})
+
+        if _qa_system_instance is None or not _qa_system_instance.is_initialized:
+            _safe_update_task(task_id, {"status": "failed", "error": "QA系统未初始化，请先调用/initialize接口"})
+            return
+
+        if session_id not in _active_sessions:
+            _active_sessions[session_id] = {
+                'created_at': datetime.now().isoformat(),
+                'question_count': 0,
+                'last_active': datetime.now().isoformat(),
+            }
+        _active_sessions[session_id]['last_active'] = datetime.now().isoformat()
+
+        result = _qa_system_instance.ask_question(question)
+        _active_sessions[session_id]['question_count'] += 1
+
+        _safe_update_task(task_id, {
+            "status": "completed",
+            "result": {
+                "success": result.get('success', False),
+                "answer": result.get('answer'),
+                "question": question,
+                "session_id": session_id,
+                "source_files": result.get('source_files', []),
+                "files_count": result.get('files_count', 0),
+                "token_usage": result.get('token_usage'),
+                "processing_time": result.get('processing_time', 0),
+                "error": result.get('error'),
+            },
+        })
+    except Exception as e:
+        logger.error(f"问答任务 {task_id} 失败: {e}", exc_info=True)
+        _safe_update_task(task_id, {"status": "failed", "error": str(e)})
+
+
 # ==================== 依赖注入 ====================
 
 def get_config():
@@ -329,56 +393,100 @@ def get_session(session_id: str) -> Dict[str, Any]:
 
 # ==================== AI 问答系统接口 ====================
 
-@router.post("/initialize", response_model=InitializeResponse, summary="初始化AI问答系统")
+@router.post("/initialize", response_model=SubmitTaskResponse, summary="初始化AI问答系统（后台执行）")
 async def initialize_system(request: InitializeRequest):
-    global _qa_system_instance
-    try:
-        config = get_config()
-        _qa_system_instance = LangChainCodeQASystem(config)
-        await asyncio.to_thread(_qa_system_instance.initialize, force_rebuild=request.force_rebuild)
-        system_stats = await asyncio.to_thread(_qa_system_instance.get_system_status)
-        return InitializeResponse(
-            success=True,
-            message="AI问答系统初始化成功",
-            system_id=str(uuid.uuid4()),
-            initialization_time=datetime.now().isoformat(),
-            stats=system_stats,
-        )
-    except Exception as e:
-        logger.error(f"初始化失败: {e}")
-        raise HTTPException(status_code=500, detail=f"系统初始化失败: {str(e)}")
+    """提交初始化任务，后台执行，通过 /initialize-status/{task_id} 轮询进度"""
+    task_id = str(uuid.uuid4())[:8]
+    now_str = datetime.now().isoformat()
+
+    _safe_create_task(task_id, {
+        "task_id": task_id,
+        "task_type": "initialize",
+        "status": "pending",
+        "result": None,
+        "error": None,
+        "created_at": now_str,
+        "updated_at": now_str,
+    })
+
+    t = threading.Thread(
+        target=_run_initialize_task,
+        args=(task_id, request.force_rebuild),
+        daemon=True,
+    )
+    t.start()
+
+    logger.info(f"初始化任务已提交: task_id={task_id}")
+    return SubmitTaskResponse(task_id=task_id, status="pending", message="初始化任务已提交，请通过轮询接口查看进度")
 
 
-@router.post("/ask", response_model=QuestionResponse, summary="提问")
-async def ask_question(request: QuestionRequest, qa_system: LangChainCodeQASystem = Depends(get_qa_system)):
-    try:
-        session_id = request.session_id or str(uuid.uuid4())
-        if session_id not in _active_sessions:
-            _active_sessions[session_id] = {
-                'created_at': datetime.now().isoformat(),
-                'question_count': 0,
-                'last_active': datetime.now().isoformat(),
-            }
-        session = _active_sessions[session_id]
-        session['last_active'] = datetime.now().isoformat()
+@router.get("/initialize-status/{task_id}", response_model=TaskStatusResponse, summary="查询初始化任务状态")
+async def get_initialize_status(task_id: str):
+    """根据 task_id 查询系统初始化任务的执行状态和结果"""
+    task = _safe_get_task(task_id)
+    if not task or task.get("task_type") != "initialize":
+        raise HTTPException(status_code=404, detail=f"初始化任务 {task_id} 不存在或已过期")
 
-        result = await asyncio.to_thread(qa_system.ask_question, request.question)
-        session['question_count'] += 1
+    return TaskStatusResponse(
+        task_id=task["task_id"],
+        status=task["status"],
+        task_type=task.get("task_type", ""),
+        result=task.get("result"),
+        error=task.get("error"),
+        created_at=task.get("created_at"),
+        updated_at=task.get("updated_at"),
+    )
 
-        return QuestionResponse(
-            success=result.get('success', False),
-            answer=result.get('answer'),
-            question=request.question,
-            session_id=session_id,
-            source_files=result.get('source_files', []),
-            files_count=result.get('files_count', 0),
-            token_usage=result.get('token_usage'),
-            processing_time=result.get('processing_time', 0),
-            error=result.get('error'),
-        )
-    except Exception as e:
-        logger.error(f"提问接口出错: {e}")
-        raise HTTPException(status_code=500, detail=f"处理问题失败: {str(e)}")
+
+@router.post("/ask", response_model=SubmitTaskResponse, summary="提问（后台执行）")
+async def ask_question(request: QuestionRequest):
+    """提交问答任务，后台执行，通过 /ask-status/{task_id} 轮询结果"""
+    if _qa_system_instance is None or not _qa_system_instance.is_initialized:
+        raise HTTPException(status_code=503, detail="QA系统未初始化，请先调用/initialize接口")
+
+    task_id = str(uuid.uuid4())[:8]
+    session_id = request.session_id or str(uuid.uuid4())
+    now_str = datetime.now().isoformat()
+
+    _safe_create_task(task_id, {
+        "task_id": task_id,
+        "task_type": "ask",
+        "status": "pending",
+        "result": None,
+        "error": None,
+        "created_at": now_str,
+        "updated_at": now_str,
+        "question": request.question,
+        "session_id": session_id,
+    })
+
+    t = threading.Thread(
+        target=_run_ask_task,
+        args=(task_id, request.question, session_id),
+        daemon=True,
+    )
+    t.start()
+
+    logger.info(f"问答任务已提交: task_id={task_id}")
+    return SubmitTaskResponse(task_id=task_id, status="pending", message="问答任务已提交，请通过轮询接口查看结果")
+
+
+@router.get("/ask-status/{task_id}", response_model=TaskStatusResponse, summary="查询问答任务状态")
+async def get_ask_status(task_id: str):
+    """根据 task_id 查询问答任务的执行状态和结果"""
+    task = _safe_get_task(task_id)
+    if not task or task.get("task_type") != "ask":
+        raise HTTPException(status_code=404, detail=f"问答任务 {task_id} 不存在或已过期")
+
+    return TaskStatusResponse(
+        task_id=task["task_id"],
+        status=task["status"],
+        task_type=task.get("task_type", ""),
+        result=task.get("result"),
+        error=task.get("error"),
+        created_at=task.get("created_at"),
+        updated_at=task.get("updated_at"),
+    )
 
 
 # ==================== 用例生成系统接口 ====================
@@ -663,8 +771,10 @@ async def api_root():
         "name": "AI代码智能问答系统API",
         "version": "1.0.0",
         "endpoints": [
-            {"method": "POST", "path": "/api/v1/aiagent/initialize", "description": "初始化系统"},
-            {"method": "POST", "path": "/api/v1/aiagent/ask", "description": "提问"},
+            {"method": "POST", "path": "/api/v1/aiagent/initialize", "description": "初始化系统（后台执行）"},
+            {"method": "GET",  "path": "/api/v1/aiagent/initialize-status/{task_id}", "description": "查询初始化状态"},
+            {"method": "POST", "path": "/api/v1/aiagent/ask", "description": "提问（后台执行）"},
+            {"method": "GET",  "path": "/api/v1/aiagent/ask-status/{task_id}", "description": "查询问答状态"},
             {"method": "POST", "path": "/api/v1/aiagent/getdocx", "description": "上传解析文档"},
             {"method": "POST", "path": "/api/v1/aiagent/parse-and-build-graph", "description": "解析文档构建图谱"},
             {"method": "POST", "path": "/api/v1/aiagent/gentestcases", "description": "生成测试用例"},
