@@ -315,86 +315,102 @@ class RequirementKnowledgeGraph:
         
         return results
 
+def _docx_to_markdown(contents: bytes) -> str:
+    """使用 python-docx 将 DOCX 二进制内容转换为 Markdown 文本"""
+    from docx import Document
+    from io import BytesIO
+
+    doc = Document(BytesIO(contents))
+    md_lines = []
+
+    for para in doc.paragraphs:
+        style_name = para.style.name if para.style else ""
+        text = para.text.strip()
+        if not text:
+            continue
+
+        if "Heading 1" in style_name:
+            md_lines.append(f"# {text}")
+        elif "Heading 2" in style_name:
+            md_lines.append(f"## {text}")
+        elif "Heading 3" in style_name:
+            md_lines.append(f"### {text}")
+        elif "Heading 4" in style_name:
+            md_lines.append(f"#### {text}")
+        elif "Title" in style_name:
+            md_lines.append(f"# {text}")
+        elif "List" in style_name:
+            md_lines.append(f"- {text}")
+        else:
+            md_lines.append(text)
+
+    # 解析表格
+    table_count = 0
+    for table in doc.tables:
+        table_count += 1
+        md_lines.append("")
+        for i, row in enumerate(table.rows):
+            cells = [cell.text.strip().replace("\n", " ") for cell in row.cells]
+            md_lines.append("| " + " | ".join(cells) + " |")
+            if i == 0:
+                md_lines.append("| " + " | ".join(["---"] * len(cells)) + " |")
+        md_lines.append("")
+
+    # 统计元信息
+    heading_count = sum(1 for l in md_lines if l.startswith("#"))
+    list_item_count = sum(1 for l in md_lines if l.startswith("- "))
+    paragraphs = [l for l in md_lines if l and not l.startswith(("#", "|", "-", ">", "`"))]
+
+    markdown_text = "\n".join(md_lines)
+    return markdown_text, {
+        "paragraph_count": len(paragraphs),
+        "table_count": table_count,
+        "heading_count": heading_count,
+        "list_item_count": list_item_count,
+        "total_characters": len(markdown_text),
+        "line_count": len(md_lines),
+    }
+
+
 async def readdocxfile(file) -> Dict[str, Any]:
     """
-    将上传的DOCX文件转换为Markdown格式
+    将上传的DOCX文件转换为Markdown格式（使用 python-docx，无需安装 pandoc）
     """
     try:
-        # 读取文件内容
         contents = await file.read()
-        
-        # 创建一个临时文件来保存DOCX内容
-        with tempfile.NamedTemporaryFile(suffix='.docx', delete=False) as tmp_file:
-            tmp_file.write(contents)
-            tmp_file_path = tmp_file.name
-        
-        try:
-            # 使用pypandoc转换文件（推荐使用convert_file而不是convert_text）
-            markdown_content = pypandoc.convert_file(
-                source_file=tmp_file_path,
-                to='markdown',
-                format='docx',
-                extra_args=['--wrap=none']  # 防止自动换行
-            )
-            
-            # 解析Markdown内容，获取元信息
-            lines = markdown_content.strip().split('\n')
-            
-            # 计算段落数（非空行，排除表格、标题、列表标记）
-            paragraphs = []
-            for line in lines:
-                line = line.strip()
-                if line and not line.startswith(('|', '#', '-', '*', '>', '`')):
-                    paragraphs.append(line)
-            
-            # 计算表格数（以|开头的行）
-            table_lines = [line for line in lines if line.strip().startswith('|')]
-            table_count = 0
-            for i, line in enumerate(table_lines):
-                if i > 0 and '---' in line:
-                    table_count += 1
-            
-            # 计算图片数
-            image_count = sum(1 for line in lines if '![' in line and '](' in line)
-            
-            # 计算标题数
-            heading_count = sum(1 for line in lines if line.strip().startswith('#'))
-            
-            # 计算列表项数
-            list_item_count = sum(1 for line in lines if line.strip().startswith(('-', '*', '+', '1.', '2.', '3.')))
-            
-            # 清理markdown内容（可选：移除多余的空行）
-            cleaned_markdown = '\n'.join([line.rstrip() for line in lines])
 
+        if len(contents) < 10:
             return {
-                "success": True,
-                "raw_content": cleaned_markdown,
-                "format": "markdown",
-                "metadata": {
-                    "paragraph_count": len(paragraphs),
-                    "table_count": table_count,
-                    "image_count": image_count,
-                    "heading_count": heading_count,
-                    "list_item_count": list_item_count,
-                    "total_characters": len(cleaned_markdown),
-                    "total_words": len(cleaned_markdown.split()),
-                    "line_count": len(lines),
-                    "file_name": file.filename,
-                    "file_size": len(contents)
-                },
-                "conversion_messages": ["使用pypandoc转换完成"]
+                "success": False,
+                "error": "文件内容为空或过小",
+                "message": "文件内容为空或过小",
             }
-            
-        finally:
-            # 确保删除临时文件
-            if os.path.exists(tmp_file_path):
-                os.unlink(tmp_file_path)
-                
+
+        markdown_text, stats = _docx_to_markdown(contents)
+
+        if not markdown_text.strip():
+            return {
+                "success": False,
+                "error": "未能从文档中提取到任何文本内容",
+                "message": "未能从文档中提取到任何文本内容",
+            }
+
+        return {
+            "success": True,
+            "raw_content": markdown_text,
+            "format": "markdown",
+            "metadata": {
+                **stats,
+                "file_name": file.filename,
+                "file_size": len(contents),
+            },
+        }
+
     except Exception as e:
         return {
             "success": False,
             "error": str(e),
-            "message": f"解析DOCX文件失败: {str(e)}"
+            "message": f"解析DOCX文件失败: {str(e)}",
         }
         
 
@@ -537,6 +553,30 @@ class IntegrateGlodonTestcasegenWorkflow:
         return result
 
 
+    def _safe_get_node_output(self, pid: str, node_id: str) -> Optional[Dict]:
+        """安全获取工作流节点的输出数据"""
+        try:
+            response = self.get_node_result(pid, node_id, self.token)
+            if response.status_code != 200:
+                logger.error(f"获取节点结果失败, pid={pid}, nodeId={node_id}, status={response.status_code}")
+                return None
+            data = response.json()
+            outputs = data.get("data", {}).get("result", {}).get("data", {}).get("outputs")
+            if not outputs:
+                logger.error(f"节点输出中未找到 outputs, pid={pid}, nodeId={node_id}")
+                return None
+            # outputs 可能是 dict（直接的数据）或 str（URL）
+            if isinstance(outputs, dict):
+                return outputs
+            url_response = requests.get(outputs, timeout=120)
+            if url_response.status_code != 200:
+                logger.error(f"获取 outputs URL 内容失败, url={outputs}, status={url_response.status_code}")
+                return None
+            return url_response.json()
+        except Exception as e:
+            logger.error(f"获取节点输出异常, pid={pid}, nodeId={node_id}: {e}")
+            return None
+
     def excute_test_gen(self, requirements_markdown_string, api_markdown_string):
         #文本处理
         # api_docx_path= "E://RunTestZK//tests//AI测试材料准备//2025hackathon//material//获取当前登录人有权限的指定组织的子节点.docx"
@@ -553,25 +593,32 @@ class IntegrateGlodonTestcasegenWorkflow:
         end_nodeod = self.get_end_node_id(self.token,pid,1000,10)
         print(end_nodeod)
         output_flowone =[]
-        if end_nodeod.startswith("End"):
-            response_of_flowone = self.get_node_result(pid, end_nodeod, self.token)
-            response_data= response_of_flowone.json()
+        if end_nodeod and end_nodeod.startswith("End"):
+            output_data = self._safe_get_node_output(pid, end_nodeod)
+            if not output_data:
+                return []
 
             print("-----------------需求点分堆-----------------------")
-            output_data_requirementcases = response_data['data']['result']['data']['outputs']['output']
-            requirement_stacks = self.clean_and_parse_json(output_data_requirementcases)
+            output_requirementcases = output_data.get("output", "")
+            requirement_stacks = self.clean_and_parse_json(output_requirementcases)
+            if not requirement_stacks or not isinstance(requirement_stacks, list):
+                logger.error(f"需求点分堆结果解析失败, output_preview={str(output_requirementcases)[:300]}")
+                return []
+
             output_flowone.append(requirement_stacks)
 
             print("-----------------需求文档-----------------------")
-            output_data_requirement = response_data['data']['result']['data']['outputs']['output2']
+            output_data_requirement = output_data.get("output2", "")
             output_flowone.append(output_data_requirement)
             with open("output_requirement_stacks.json", "w", encoding="utf-8") as f:
                 json.dump(requirement_stacks, f, ensure_ascii=False, indent=4)
         else:
             print("工作流运行失败")
-            response_flowone_warning = self.get_node_result(pid, end_nodeod, self.token)
-            response_data= response_flowone_warning.json()
-            print(json.dumps(response_flowone_warning.json(), indent=2, ensure_ascii=False))
+            if end_nodeod:
+                response_flowone_warning = self.get_node_result(pid, end_nodeod, self.token)
+                response_data_flowone= response_flowone_warning.json()
+                print(json.dumps(response_flowone_warning.json(), indent=2, ensure_ascii=False))
+            return []
 
         ##异步调用工作流-测试点生成
         if len(output_flowone)!=0:
@@ -585,16 +632,16 @@ class IntegrateGlodonTestcasegenWorkflow:
                     testcasesgen_response = self.workflow_apply_async_testcasesgen(case,str(output_flowone[1]),stack["module"],tastcasesgen_url,self.token)
                     testcasesgen_pid = testcasesgen_response.json().get("data", "")
                     testcasesgen_end_nodeod = self.get_end_node_id(self.token,testcasesgen_pid,1000,10)
-                    if testcasesgen_end_nodeod.startswith("End"):
-                        testcasesgen_response2 = self.get_node_result(testcasesgen_pid, testcasesgen_end_nodeod, self.token)
-                        testcase_data = testcasesgen_response2.json()
-                        testcase_cases = testcase_data['data']['result']['data']['outputs']['testcases']
+                    if testcasesgen_end_nodeod and testcasesgen_end_nodeod.startswith("End"):
+                        tc_output_data = self._safe_get_node_output(testcasesgen_pid, testcasesgen_end_nodeod)
+                        output_testcases = tc_output_data.get("testcases", "")
                         countnum +=1
                         print(f"-----------------{countnum}-----------------------")
-                        testcase_cases_list = self.clean_and_parse_json(testcase_cases)                 
-                        case_results.extend(testcase_cases_list)
+                        testcase_cases_list = self.clean_and_parse_json(output_testcases)
+                        if testcase_cases_list:
+                            case_results.extend(testcase_cases_list)
             
             with open("output_testcase_1.json", "w", encoding="utf-8") as f:
                 json.dump(case_results, f, ensure_ascii=False, indent=4)
             return case_results
-        return False
+        return []

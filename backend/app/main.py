@@ -26,6 +26,17 @@ async def lifespan(app: FastAPI):
     """生命周期事件处理器"""
     # Startup: 应用启动时执行
     logger.info("🚀 Application starting up...")
+
+    # 清理所有未完成的异步任务（服务重启后内存任务存储已清空，这里显式确认）
+    from app.api.v1.endpoints.aiagent_api import _task_store, _task_store_lock
+    with _task_store_lock:
+        cleared_count = len(_task_store)
+        _task_store.clear()
+    if cleared_count > 0:
+        logger.warning(f"后端重启，已清理 {cleared_count} 个未完成的异步任务")
+    else:
+        logger.info("异步任务存储已初始化（无残留任务）")
+
     await connect_to_mongo()
     
     # 应用运行中...

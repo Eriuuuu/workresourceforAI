@@ -63,3 +63,84 @@ class DebugRetrievalResponse(BaseModel):
     retrieved_files: List[Dict[str, Any]]
     count: int
     processing_time: float
+
+# ==================== 用例生成系统模型 ====================
+class ParseDocumentResponse(BaseModel):
+    """文档解析响应"""
+    success: bool
+    raw_content: str = ""
+    format: str = "markdown"
+    metadata: Dict[str, Any] = {}
+    error: Optional[str] = None
+
+class TestCaseGenRequest(BaseModel):
+    """用例生成请求"""
+    requirement_text: str = Field(..., min_length=1, description="需求文档文本内容")
+    search_keyword: str = Field(default="", description="图谱检索关键词，为空则使用需求文本前50字")
+
+class GraphNodeData(BaseModel):
+    """知识图谱节点"""
+    id: str
+    name: str
+    label: str
+    type: str = "requirement"
+    description: str = ""
+    properties: Dict[str, Any] = {}
+
+class GraphEdgeData(BaseModel):
+    """知识图谱边"""
+    source: str
+    target: str
+    label: str
+    properties: Dict[str, Any] = {}
+
+class TestCaseStep(BaseModel):
+    """测试步骤"""
+    action: str
+    expected: str = ""
+
+class TestCaseItem(BaseModel):
+    """单条测试用例"""
+    id: str = ""
+    name: str = ""
+    description: str = ""
+    priority: str = "中"
+    status: str = "未执行"
+    preconditions: str = ""
+    steps: List[TestCaseStep] = []
+    module: str = ""
+    created_at: str = ""
+    updated_at: str = ""
+
+class TestCaseGenResponse(BaseModel):
+    """用例生成完整响应"""
+    success: bool
+    message: str = ""
+    test_cases: List[TestCaseItem] = []
+    graph_nodes: List[GraphNodeData] = []
+    graph_edges: List[GraphEdgeData] = []
+    processing_time: float = 0
+    error: Optional[str] = None
+
+# ==================== 异步任务模型 ====================
+class SubmitTaskRequest(BaseModel):
+    """提交异步任务请求"""
+    task_type: str = Field(..., description="任务类型: parse_graph 或 generate_cases")
+    requirement_text: str = Field(..., min_length=1, description="需求文档文本内容")
+    search_keyword: str = Field(default="", description="图谱检索关键词")
+
+class SubmitTaskResponse(BaseModel):
+    """提交任务响应"""
+    task_id: str
+    status: str = "pending"
+    message: str = ""
+
+class TaskStatusResponse(BaseModel):
+    """任务状态查询响应"""
+    task_id: str
+    status: str  # pending / processing / completed / failed
+    task_type: str = ""
+    result: Optional[Dict[str, Any]] = None
+    error: Optional[str] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None

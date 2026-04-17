@@ -20,7 +20,7 @@ async def login(
             detail="Incorrect email or password",
         )
     
-    access_token = create_access_token(subject=str(user.id),expires_delta=timedelta(hours=1))
+    access_token = create_access_token(subject=str(user.id),expires_delta=timedelta(hours=24))
     
     return {
         "access_token": access_token,

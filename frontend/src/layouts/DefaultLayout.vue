@@ -20,9 +20,11 @@
     
     <main class="layout-main" :class="{ 'no-padding': $route.meta.fullBleed }">
       <div class="container" v-if="!$route.meta.fullBleed">
-        <router-view />
+        <router-view :key="$route.fullPath" v-slot="{ Component }">
+          <component :is="Component" />
+        </router-view>
       </div>
-      <router-view v-else />
+      <router-view v-else :key="$route.fullPath" />
     </main>
   </div>
 </template>

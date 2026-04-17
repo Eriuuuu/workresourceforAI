@@ -1,2761 +1,1061 @@
 <template>
-<div class="document-processor">
-    <!-- 顶部导航栏 -->
-    <div class="top-nav">
-    <div class="nav-content">
-        <div class="logo-section">
-        <div class="logo-icon">
-            <el-icon :size="24" color="white"><Document /></el-icon>
-        </div>
-        <div class="logo-text">
-            <h1>IntelliCases</h1>
-            <p>智能用例生成系统</p>
-        </div>
-        </div>
-        <div class="user-info">
-        <el-avatar
-            :size="36"
-            src="https://cube.elemecdn.com/3/7c/3ea6beec64369c2642b92c6726f1epng.png"
-        />
-        <span class="user-name">Admin</span>
-        </div>
-    </div>
-    </div>
-
-    <div class="main-content">
-    <!-- 步骤指示器 -->
-    <div class="process-steps-container">
-        <div class="process-steps">
-        <div class="steps-header">
-            <h3>处理流程</h3>
-            <div class="step-progress">
-            <span>当前进度：</span>
-            <span class="progress-text">{{ getStepText(activeStep) }}</span>
+<div class="tcgen-page">
+    <div class="tcgen-container">
+    <!-- 步骤进度条 -->
+    <div class="progress-bar-section">
+        <div class="progress-steps">
+        <div class="progress-step" :class="{ done: activeStep > 0, current: activeStep === 0 }">
+            <div class="step-dot">
+            <el-icon v-if="activeStep > 0"><CircleCheckFilled /></el-icon>
+            <span v-else>1</span>
             </div>
+            <span class="step-text">上传文档</span>
         </div>
-
-        <div class="steps-wrapper">
-            <div class="steps-track">
-            <div
-                class="progress-bar"
-                :style="{ width: `${(activeStep / 3) * 100}%` }"
-            ></div>
-
-            <div
-                class="step-item"
-                :class="{ active: activeStep >= 1, completed: activeStep > 1 }"
-            >
-                <div class="step-circle">
-                <div class="step-number">1</div>
-                <div class="step-check" v-if="activeStep > 1">
-                    <el-icon><CircleCheckFilled /></el-icon>
-                </div>
-                </div>
-                <div class="step-label">上传文档</div>
-                <div class="step-desc">选择DOCX文件</div>
+        <div class="progress-line" :class="{ active: activeStep > 0 }"></div>
+        <div class="progress-step" :class="{ done: activeStep > 1, current: activeStep === 1 }">
+            <div class="step-dot">
+            <el-icon v-if="activeStep > 1"><CircleCheckFilled /></el-icon>
+            <span v-else>2</span>
             </div>
-
-            <div
-                class="step-item"
-                :class="{ active: activeStep >= 2, completed: activeStep > 2 }"
-            >
-                <div class="step-circle">
-                <div class="step-number">2</div>
-                <div class="step-check" v-if="activeStep > 2">
-                    <el-icon><CircleCheckFilled /></el-icon>
-                </div>
-                </div>
-                <div class="step-label">知识图谱</div>
-                <div class="step-desc">解析文档结构</div>
+            <span class="step-text">解析图谱</span>
+        </div>
+        <div class="progress-line" :class="{ active: activeStep > 1 }"></div>
+        <div class="progress-step" :class="{ done: activeStep > 2, current: activeStep === 2 }">
+            <div class="step-dot">
+            <el-icon v-if="activeStep >= 3"><CircleCheckFilled /></el-icon>
+            <span v-else>3</span>
             </div>
-
-            <div
-                class="step-item"
-                :class="{ active: activeStep >= 3, completed: activeStep >= 3 }"
-            >
-                <div class="step-circle">
-                <div class="step-number">3</div>
-                <div class="step-check" v-if="activeStep >= 3">
-                    <el-icon><CircleCheckFilled /></el-icon>
-                </div>
-                </div>
-                <div class="step-label">生成用例</div>
-                <div class="step-desc">输出测试用例</div>
-            </div>
-            </div>
+            <span class="step-text">生成用例</span>
         </div>
         </div>
     </div>
 
-    <div class="content-wrapper">
-        <!-- 左侧面板 -->
-        <div class="left-panel">
-        <!-- 文档上传卡片 -->
-        <div class="glass-card upload-card">
-            <div class="card-header">
-            <div class="header-icon">
-                <el-icon :size="20" color="white"><Upload /></el-icon>
-            </div>
-            <div class="header-content">
-                <h3>文档上传</h3>
-                <p>上传DOCX文档开始处理流程</p>
-            </div>
-            </div>
+    <!-- 上传与操作区 -->
+    <div class="card">
+        <div class="card-title">
+        <el-icon :size="18"><Upload /></el-icon>
+        <span>文档上传</span>
+        </div>
+        <el-upload
+        drag
+        action=""
+        :auto-upload="false"
+        :on-change="handleFileChange"
+        :on-remove="handleFileRemove"
+        :limit="1"
+        accept=".docx"
+        class="upload-area"
+        >
+        <div class="upload-placeholder">
+            <el-icon :size="36" color="#6366f1"><UploadFilled /></el-icon>
+            <p>拖放 DOCX 文件到此处，或 <em>点击上传</em></p>
+            <span class="upload-hint">支持 .docx 格式</span>
+        </div>
+        </el-upload>
 
-            <div class="card-body">
-            <div class="upload-section">
-                <el-upload
-                class="upload-area"
-                drag
-                action=""
-                :auto-upload="false"
-                :on-change="handleFileChange"
-                :on-remove="handleFileRemove"
-                :limit="1"
-                accept=".docx"
-                >
-                <div class="upload-content">
-                    <div class="upload-icon">
-                    <el-icon :size="32" color="#6366f1"><UploadFilled /></el-icon>
-                    </div>
-                    <div class="upload-text">
-                    <h4>拖放文件到此处</h4>
-                    <p>或点击选择DOCX文档</p>
-                    </div>
-                    <div class="upload-format">
-                    <span>.docx</span>
-                    </div>
-                </div>
-                <template #tip>
-                    <div class="upload-tip">
-                    <el-icon><InfoFilled /></el-icon>
-                    <span>支持最大10MB的DOCX文档</span>
-                    </div>
-                </template>
-                </el-upload>
-
-                <div v-if="selectedFile" class="selected-file">
-                <div class="file-icon">
-                    <el-icon :size="20" color="#6366f1"><Document /></el-icon>
-                </div>
-                <div class="file-details">
-                    <div class="file-name">{{ selectedFile.name }}</div>
-                    <div class="file-size">{{ formatFileSize(selectedFile.size) }}</div>
-                </div>
-                <div class="file-actions">
-                    <el-button
-                    type="danger"
-                    size="small"
-                    circle
-                    @click="handleFileRemove"
-                    >
-                    <el-icon><Close /></el-icon>
-                    </el-button>
-                </div>
-                </div>
-            </div>
-
-            <div class="action-buttons">
-                <el-button
-                class="process-btn parse-btn"
-                :loading="parsingLoading"
-                :disabled="!selectedFile"
-                @click="parseDocument"
-                >
-                <div class="btn-content">
-                    <div class="btn-icon">
-                    <el-icon :size="20" color="white"><Connection /></el-icon>
-                    </div>
-                    <div class="btn-text">
-                    <div class="btn-title">解析文档</div>
-                    <div class="btn-subtitle">生成知识图谱</div>
-                    </div>
-                </div>
-                </el-button>
-
-                <el-button
-                class="process-btn generate-btn"
-                :loading="generatingLoading"
-                :disabled="!hasGraphData"
-                @click="generateTestCases"
-                >
-                <div class="btn-content">
-                    <div class="btn-icon">
-                    <el-icon :size="20" color="white"><MagicStick /></el-icon>
-                    </div>
-                    <div class="btn-text">
-                    <div class="btn-title">生成用例</div>
-                    <div class="btn-subtitle">基于图谱创建</div>
-                    </div>
-                </div>
-                </el-button>
-            </div>
-            </div>
+        <div v-if="selectedFile" class="selected-file-bar">
+        <el-icon color="#6366f1"><Document /></el-icon>
+        <span class="file-name">{{ selectedFile.name }}</span>
+        <span class="file-size">{{ formatFileSize(selectedFile.size) }}</span>
+        <el-button type="danger" size="small" circle @click="handleFileRemove">
+            <el-icon><Close /></el-icon>
+        </el-button>
         </div>
 
-        <!-- 处理状态卡片 -->
-        <div class="glass-card status-card">
-            <div class="card-header">
-            <div class="header-icon">
-                <el-icon :size="20" color="white"><Loading /></el-icon>
-            </div>
-            <div class="header-content">
-                <h3>处理状态</h3>
-                <p>实时更新处理进度</p>
-            </div>
-            </div>
+        <div class="action-row">
+        <el-button
+            type="primary"
+            :loading="parsingLoading"
+            :disabled="!selectedFile"
+            @click="parseDocument"
+        >
+            <el-icon><Connection /></el-icon>
+            <span>解析文档</span>
+        </el-button>
+        <el-button
+            type="primary"
+            :loading="generatingLoading"
+            :disabled="!hasGraphData"
+            @click="generateTestCases"
+        >
+            <el-icon><MagicStick /></el-icon>
+            <span>生成用例</span>
+        </el-button>
+        </div>
+    </div>
 
-            <div class="card-body">
-            <div class="status-list">
-                <div class="status-item" :class="{ active: parseStatus }">
-                <div class="status-icon">
-                    <div class="icon-wrapper" :class="parseStatusType">
-                    <el-icon v-if="parseStatusType === 'success'"
-                        ><CircleCheckFilled
-                    /></el-icon>
-                    <el-icon v-else-if="parseStatusType === 'error'"
-                        ><CircleCloseFilled
-                    /></el-icon>
-                    <el-icon v-else><Loading /></el-icon>
-                    </div>
-                </div>
-                <div class="status-content">
-                    <div class="status-title">
-                    <span>文档解析</span>
-                    <el-tag v-if="parseStatus" :type="parseStatusType" size="small">
-                        {{
-                        parseStatusType === "success"
-                            ? "已完成"
-                            : parseStatusType === "error"
-                            ? "失败"
-                            : "处理中"
-                        }}
-                    </el-tag>
-                    </div>
-                    <div class="status-desc" v-if="parseStatus">{{ parseStatus }}</div>
-                    <div class="status-desc" v-else>等待上传文档文件</div>
-                </div>
-                </div>
+    <!-- 状态信息 -->
+    <div class="status-row" v-if="parseStatus || generateStatus">
+        <div v-if="parseStatus" class="status-chip" :class="parseStatusType">
+        <el-icon v-if="parseStatusType === 'success'"><CircleCheckFilled /></el-icon>
+        <el-icon v-else-if="parseStatusType === 'error'"><CircleCloseFilled /></el-icon>
+        <el-icon v-else><Loading /></el-icon>
+        <span>{{ parseStatus }}</span>
+        </div>
+        <div v-if="generateStatus" class="status-chip" :class="generateStatusType">
+        <el-icon v-if="generateStatusType === 'success'"><CircleCheckFilled /></el-icon>
+        <el-icon v-else-if="generateStatusType === 'error'"><CircleCloseFilled /></el-icon>
+        <el-icon v-else><Loading /></el-icon>
+        <span>{{ generateStatus }}</span>
+        </div>
+    </div>
 
-                <div class="status-divider"></div>
-
-                <div class="status-item" :class="{ active: generateStatus }">
-                <div class="status-icon">
-                    <div class="icon-wrapper" :class="generateStatusType">
-                    <el-icon v-if="generateStatusType === 'success'"
-                        ><CircleCheckFilled
-                    /></el-icon>
-                    <el-icon v-else-if="generateStatusType === 'error'"
-                        ><CircleCloseFilled
-                    /></el-icon>
-                    <el-icon v-else><Loading /></el-icon>
-                    </div>
-                </div>
-                <div class="status-content">
-                    <div class="status-title">
-                    <span>用例生成</span>
-                    <el-tag
-                        v-if="generateStatus"
-                        :type="generateStatusType"
-                        size="small"
-                    >
-                        {{
-                        generateStatusType === "success"
-                            ? "已完成"
-                            : generateStatusType === "error"
-                            ? "失败"
-                            : "处理中"
-                        }}
-                    </el-tag>
-                    </div>
-                    <div class="status-desc" v-if="generateStatus">
-                    {{ generateStatus }}
-                    </div>
-                    <div class="status-desc" v-else>等待知识图谱数据</div>
-                </div>
-                </div>
-            </div>
-            </div>
+    <!-- 知识图谱 -->
+    <div class="card">
+        <div class="card-title-row">
+        <div class="card-title">
+            <el-icon :size="18"><DataLine /></el-icon>
+            <span>知识图谱</span>
+        </div>
+        <div class="graph-stats" v-if="graphData.nodes.length > 0">
+            <el-tag size="small" type="info">{{ graphData.nodes.length }} 节点</el-tag>
+            <el-tag size="small" type="info">{{ graphData.edges.length }} 关系</el-tag>
         </div>
         </div>
-
-        <!-- 右侧面板 -->
-        <div class="right-panel">
-        <!-- 知识图谱卡片 -->
-        <div class="glass-card graph-card">
-            <div class="card-header">
-            <div class="header-content">
-                <div class="title-section">
-                <h3>知识图谱</h3>
-                <div class="graph-stats" v-if="graphData.nodes.length > 0">
-                    <el-tag type="info" size="small" class="stat-tag">
-                    <el-icon><DataLine /></el-icon>
-                    <span>{{ graphData.nodes.length }} 节点</span>
-                    </el-tag>
-                    <el-tag type="info" size="small" class="stat-tag">
-                    <el-icon><Connection /></el-icon>
-                    <span>{{ graphData.edges.length }} 关系</span>
-                    </el-tag>
-                </div>
-                </div>
-                <p v-if="graphData.nodes.length > 0">文档解析生成的语义网络</p>
-                <p v-else>文档解析后生成知识图谱</p>
-            </div>
-            <div class="header-actions">
-                <el-button-group>
-                <el-button
-                    :type="!showGraphAsTable ? 'primary' : 'default'"
-                    size="small"
-                    @click="showGraphAsTable = false"
-                    title="图表视图"
-                >
-                    <el-icon><DataLine /></el-icon>
-                </el-button>
-                <el-button
-                    :type="showGraphAsTable ? 'primary' : 'default'"
-                    size="small"
-                    @click="showGraphAsTable = true"
-                    title="表格视图"
-                >
-                    <el-icon><Grid /></el-icon>
-                </el-button>
-                </el-button-group>
-            </div>
-            </div>
-
-            <div class="card-body">
-            <!-- 知识图谱可视化 -->
-            <div v-if="!showGraphAsTable" class="graph-content">
-                <div
-                v-if="graphData.nodes.length > 0"
-                class="graph-container"
-                ref="graphContainer"
-                >
-                <div class="graph-placeholder" v-if="!chartInitialized">
-                    <div class="placeholder-content">
-                    <div class="placeholder-icon">
-                        <el-icon :size="48" color="#94a3b8"><Loading /></el-icon>
-                    </div>
-                    <div class="placeholder-text">
-                        <p>正在渲染知识图谱...</p>
-                    </div>
-                    </div>
-                </div>
-                </div>
-
-                <!-- 空状态 -->
-                <div v-if="graphData.nodes.length === 0" class="empty-state">
-                <div class="empty-icon">
-                    <el-icon :size="64" color="#cbd5e1"><DataLine /></el-icon>
-                </div>
-                <div class="empty-text">
-                    <h4>暂无知识图谱数据</h4>
-                    <p>上传并解析文档后，将在此处显示知识图谱</p>
-                </div>
-                </div>
-            </div>
-
-            <!-- 知识图谱表格视图 -->
-            <div v-else class="graph-table-view">
-                <div v-if="graphData.nodes.length > 0" class="graph-table">
-                <el-tabs class="custom-tabs" v-model="graphActiveTab">
-                    <el-tab-pane label="节点" name="nodes">
-                    <div class="table-container">
-                        <el-table
-                        :data="graphData.nodes"
-                        style="width: 100%"
-                        height="300"
-                        :row-class-name="tableRowClassName"
-                        >
-                        <el-table-column prop="id" label="ID" width="70">
-                            <template #default="scope">
-                            <div class="node-id">{{ scope.row.id }}</div>
-                            </template>
-                        </el-table-column>
-                        <el-table-column prop="label" label="类型" width="100">
-                            <template #default="scope">
-                            <el-tag
-                                :type="getNodeTagType(scope.row.type)"
-                                class="type-tag"
-                            >
-                                {{ scope.row.label }}
-                            </el-tag>
-                            </template>
-                        </el-table-column>
-                        <el-table-column prop="name" label="名称" />
-                        <el-table-column label="属性" width="120">
-                            <template #default="scope">
-                            <div class="properties">
-                                {{ formatProperties(scope.row.properties) }}
-                            </div>
-                            </template>
-                        </el-table-column>
-                        </el-table>
-                    </div>
-                    </el-tab-pane>
-                    <el-tab-pane label="关系" name="edges">
-                    <div class="table-container">
-                        <el-table
-                        :data="graphData.edges"
-                        style="width: 100%"
-                        height="300"
-                        >
-                        <el-table-column label="关系" width="200">
-                            <template #default="scope">
-                            <div class="relation-cell">
-                                <div class="relation-source">
-                                {{ getNodeName(scope.row.source) }}
-                                </div>
-                                <div class="relation-arrow">
-                                <el-icon><Right /></el-icon>
-                                </div>
-                                <div class="relation-target">
-                                {{ getNodeName(scope.row.target) }}
-                                </div>
-                            </div>
-                            </template>
-                        </el-table-column>
-                        <el-table-column prop="label" label="类型" />
-                        <el-table-column label="属性" width="120">
-                            <template #default="scope">
-                            <div class="properties">
-                                {{ formatProperties(scope.row.properties) }}
-                            </div>
-                            </template>
-                        </el-table-column>
-                        </el-table>
-                    </div>
-                    </el-tab-pane>
-                </el-tabs>
-                </div>
-
-                <!-- 空状态 -->
-                <div v-else class="empty-state">
-                <div class="empty-icon">
-                    <el-icon :size="64" color="#cbd5e1"><Grid /></el-icon>
-                </div>
-                <div class="empty-text">
-                    <h4>暂无知识图谱数据</h4>
-                    <p>上传并解析文档后，将在此处显示数据表格</p>
-                </div>
-                </div>
-            </div>
-            </div>
+        <div class="card-body-inner">
+        <div v-if="graphData.nodes.length > 0" class="graph-container" ref="graphContainer" style="width:100%;height:420px;"></div>
+        <div v-else class="empty-state">
+            <el-icon :size="48" color="#cbd5e1"><DataLine /></el-icon>
+            <p>上传并解析文档后，将在此处显示知识图谱</p>
         </div>
+        </div>
+    </div>
 
-        <!-- 测试用例卡片 -->
-        <div class="glass-card testcase-card">
-            <div class="card-header">
-            <div class="header-content">
-                <div class="title-section">
-                <h3>测试用例</h3>
-                <div v-if="testCases.length > 0" class="case-stats">
-                    <div class="stat-item">
-                    <div class="stat-value">{{ testCases.length }}</div>
-                    <div class="stat-label">用例总数</div>
-                    </div>
-                    <div class="stat-item">
-                    <div class="stat-value">{{ highPriorityCount }}</div>
-                    <div class="stat-label">高优先级</div>
-                    </div>
-                    <div class="stat-item">
-                    <div class="stat-value">{{ mediumPriorityCount }}</div>
-                    <div class="stat-label">中优先级</div>
-                    </div>
-                    <div class="stat-item">
-                    <div class="stat-value">{{ lowPriorityCount }}</div>
-                    <div class="stat-label">低优先级</div>
-                    </div>
-                </div>
-                </div>
-                <p v-if="testCases.length > 0">基于知识图谱生成的测试用例</p>
-                <p v-else>生成测试用例后，将在此处显示</p>
-            </div>
-            <div class="header-actions">
-                <el-button
-                type="success"
-                :disabled="!testCases.length"
-                @click="exportToExcel"
-                class="export-btn"
-                >
-                <el-icon><Download /></el-icon>
-                <span>导出Excel</span>
+    <!-- 测试用例 -->
+    <div class="card">
+        <div class="card-title-row">
+        <div class="card-title">
+            <el-icon :size="18"><Grid /></el-icon>
+            <span>测试用例</span>
+            <span v-if="testCases.length > 0" class="case-count">{{ testCases.length }} 条</span>
+        </div>
+        <el-button
+            type="success"
+            size="small"
+            :disabled="!testCases.length"
+            @click="exportToExcel"
+        >
+            <el-icon><Download /></el-icon>
+            <span>导出 Excel</span>
+        </el-button>
+        </div>
+        <div class="card-body-inner">
+        <el-table
+            v-if="testCases.length > 0"
+            :data="testCases"
+            style="width:100%"
+            max-height="520"
+            stripe
+            :row-class-name="testCaseRowClassName"
+        >
+            <el-table-column prop="id" label="ID" width="65" />
+            <el-table-column prop="name" label="用例名称" min-width="160" show-overflow-tooltip />
+            <el-table-column prop="description" label="描述" min-width="220" show-overflow-tooltip />
+            <el-table-column label="优先级" width="90">
+            <template #default="scope">
+                <el-tag :type="scope.row.priority === '高' ? 'danger' : scope.row.priority === '中' ? 'warning' : 'info'" size="small">
+                {{ scope.row.priority }}
+                </el-tag>
+            </template>
+            </el-table-column>
+            <el-table-column label="操作" width="70" fixed="right">
+            <template #default="scope">
+                <el-button type="primary" size="small" circle @click="viewTestCaseDetail(scope.row)" title="查看详情">
+                <el-icon><View /></el-icon>
                 </el-button>
-                <el-button
-                :type="showJsonView ? 'primary' : 'default'"
-                :disabled="!testCases.length"
-                @click="showJsonView = !showJsonView"
-                :title="showJsonView ? '切换到表格视图' : '切换到JSON视图'"
-                >
-                <el-icon><Document /></el-icon>
-                </el-button>
-            </div>
-            </div>
-
-            <div class="card-body">
-            <!-- JSON视图 -->
-            <div v-if="showJsonView" class="json-view-container">
-                <div v-if="testCases.length > 0" class="json-view">
-                <div class="json-header">
-                    <div class="json-title">
-                    <el-icon><Document /></el-icon>
-                    <span>JSON格式数据</span>
-                    </div>
-                    <div class="json-actions">
-                    <el-button size="small" @click="copyJson">
-                        <el-icon><DocumentCopy /></el-icon>
-                        <span>复制</span>
-                    </el-button>
-                    </div>
-                </div>
-                <div class="json-content">
-                    <pre><code>{{ formatJson(testCases) }}</code></pre>
-                </div>
-                </div>
-
-                <!-- 空状态 -->
-                <div v-else class="empty-state">
-                <div class="empty-icon">
-                    <el-icon :size="64" color="#cbd5e1"><Document /></el-icon>
-                </div>
-                <div class="empty-text">
-                    <h4>暂无JSON数据</h4>
-                    <p>生成测试用例后，将在此处显示JSON格式</p>
-                </div>
-                </div>
-            </div>
-
-            <!-- 表格视图 -->
-            <div v-else class="table-view-container">
-                <div v-if="testCases.length > 0" class="table-view">
-                <div class="table-container">
-                    <el-table
-                    :data="testCases"
-                    style="width: 100%"
-                    height="300"
-                    :row-class-name="testCaseRowClassName"
-                    v-loading="generatingLoading"
-                    >
-                    <el-table-column prop="id" label="ID" width="70">
-                        <template #default="scope">
-                        <div class="case-id">{{ scope.row.id }}</div>
-                        </template>
-                    </el-table-column>
-                    <el-table-column prop="name" label="用例名称" width="180">
-                        <template #default="scope">
-                        <div class="case-name">{{ scope.row.name }}</div>
-                        </template>
-                    </el-table-column>
-                    <el-table-column prop="description" label="描述" />
-                    <el-table-column prop="priority" label="优先级" width="90">
-                        <template #default="scope">
-                        <div class="priority-badge" :class="scope.row.priority">
-                            <span>{{ scope.row.priority }}</span>
-                        </div>
-                        </template>
-                    </el-table-column>
-                    <el-table-column prop="status" label="状态" width="100">
-                        <template #default="scope">
-                        <div class="status-badge" :class="scope.row.status">
-                            <span>{{ scope.row.status }}</span>
-                        </div>
-                        </template>
-                    </el-table-column>
-                    <el-table-column label="操作" width="80">
-                        <template #default="scope">
-                        <el-button
-                            type="primary"
-                            size="small"
-                            circle
-                            @click="viewTestCaseDetail(scope.row)"
-                            title="查看详情"
-                        >
-                            <el-icon><View /></el-icon>
-                        </el-button>
-                        </template>
-                    </el-table-column>
-                    </el-table>
-                </div>
-                </div>
-
-                <!-- 空状态 -->
-                <div v-else class="empty-state">
-                <div class="empty-icon">
-                    <el-icon :size="64" color="#cbd5e1"><Grid /></el-icon>
-                </div>
-                <div class="empty-text">
-                    <h4>暂无测试用例</h4>
-                    <p>生成测试用例后，将在此处显示表格</p>
-                </div>
-                </div>
-            </div>
-            </div>
+            </template>
+            </el-table-column>
+        </el-table>
+        <div v-else class="empty-state">
+            <el-icon :size="48" color="#cbd5e1"><Grid /></el-icon>
+            <p>生成测试用例后，将在此处显示结果</p>
         </div>
         </div>
     </div>
     </div>
 
     <!-- 用例详情对话框 -->
-    <el-dialog
-    v-model="detailDialogVisible"
-    title="测试用例详情"
-    width="600px"
-    class="detail-dialog"
-    >
+    <el-dialog v-model="detailDialogVisible" title="测试用例详情" width="600px">
     <div v-if="selectedTestCase" class="detail-content">
-        <div class="detail-header">
-        <div class="detail-title">
-            <h3>{{ selectedTestCase.name }}</h3>
-            <div class="detail-meta">
-            <div class="detail-id">ID: {{ selectedTestCase.id }}</div>
-            <div class="detail-priority" :class="selectedTestCase.priority">
-                {{ selectedTestCase.priority }}
-            </div>
-            </div>
-        </div>
-        </div>
-
-        <div class="detail-body">
-        <div class="detail-section">
-            <h4>描述</h4>
-            <p>{{ selectedTestCase.description }}</p>
+        <h3 class="detail-name">{{ selectedTestCase.name }}</h3>
+        <div class="detail-meta">
+        <el-tag :type="selectedTestCase.priority === '高' ? 'danger' : selectedTestCase.priority === '中' ? 'warning' : 'info'" size="small">
+            {{ selectedTestCase.priority }}
+        </el-tag>
+        <span>ID: {{ selectedTestCase.id }}</span>
         </div>
 
         <div class="detail-section">
-            <h4>前置条件</h4>
-            <p>{{ selectedTestCase.preconditions || "无" }}</p>
+        <h4>描述</h4>
+        <p>{{ selectedTestCase.description }}</p>
         </div>
 
         <div class="detail-section">
-            <h4>测试步骤</h4>
-            <div class="steps-list">
-            <div
-                v-for="(step, index) in selectedTestCase.steps"
-                :key="index"
-                class="step-item"
-            >
-                <div class="step-number">{{ index + 1 }}</div>
-                <div class="step-content">
-                <div class="step-action">{{ step.action }}</div>
-                <div class="step-expected" v-if="step.expected">
-                    <span>预期结果：</span>{{ step.expected }}
-                </div>
-                </div>
-            </div>
-            </div>
+        <h4>前置条件</h4>
+        <p>{{ selectedTestCase.preconditions || '无' }}</p>
         </div>
 
-        <div class="detail-footer">
-            <div class="detail-info">
-            <div class="info-item">
-                <span class="info-label">状态：</span>
-                <span class="info-value" :class="selectedTestCase.status">{{
-                selectedTestCase.status
-                }}</span>
-            </div>
-            <div class="info-item">
-                <span class="info-label">创建时间：</span>
-                <span class="info-value">{{ selectedTestCase.created_at }}</span>
-            </div>
-            <div class="info-item">
-                <span class="info-label">最后更新：</span>
-                <span class="info-value">{{ selectedTestCase.updated_at }}</span>
+        <div class="detail-section">
+        <h4>预期结果</h4>
+        <p>{{ selectedTestCase.expected_result || '无' }}</p>
+        </div>
+
+        <div class="detail-section" v-if="selectedTestCase.target_api">
+        <h4>目标接口</h4>
+        <p>{{ selectedTestCase.target_api }}</p>
+        </div>
+
+        <div class="detail-section">
+        <h4>测试步骤</h4>
+        <div class="steps-list">
+            <div v-for="(step, index) in (selectedTestCase.steps || [])" :key="index" class="step-row">
+            <span class="step-num">{{ index + 1 }}</span>
+            <div class="step-body">
+                <span>{{ typeof step === 'string' ? step : (step?.action || '') }}</span>
+                <span v-if="typeof step !== 'string' && step?.expected" class="step-expected">
+                预期: {{ step.expected }}
+                </span>
             </div>
             </div>
         </div>
+        </div>
+
+        <div class="detail-meta-row">
+        <span>状态: {{ selectedTestCase.status }}</span>
+        <span>创建: {{ selectedTestCase.created_at }}</span>
+        <span>更新: {{ selectedTestCase.updated_at }}</span>
         </div>
     </div>
     </el-dialog>
-
-    <!-- 底部信息 -->
-    <div class="bottom-info">
-    <p>
-        基于 MFQ 测试方法的用例生成助手
-    </p>
-    </div>
 </div>
 </template>
 
-<script>
+<script lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from "vue";
-import { ElMessage, ElMessageBox } from "element-plus";
+import { ElMessage } from "element-plus";
 import * as XLSX from "xlsx";
 import {
-Document,
-Upload,
-UploadFilled,
-Connection,
-MagicStick,
-Download,
-InfoFilled,
-Close,
-CircleCheckFilled,
-CircleCloseFilled,
-Loading,
-DataLine,
-Grid,
-DocumentCopy,
-View,
-Right,
-} from "@element-plus/icons-vue";
-import { AIApi } from '@/api/testcasegen'
-// import { type } from 'os';
-// import { apiClient } from "@/api/client";
-
-
-export default {
-name: "DocumentProcessor",
-components: {
     Document,
     Upload,
     UploadFilled,
     Connection,
     MagicStick,
     Download,
-    InfoFilled,
     Close,
     CircleCheckFilled,
     CircleCloseFilled,
     Loading,
     DataLine,
     Grid,
-    DocumentCopy,
     View,
-    Right,
-},
-setup() {
-    
-    // 响应式数据
-    const selectedFile = ref(null);
-    const parsingLoading = ref(false);
-    const generatingLoading = ref(false);
-    const parseStatus = ref("");
-    const parseStatusType = ref("info");
-    const generateStatus = ref("");
-    const generateStatusType = ref("info");
-    const graphData = reactive({ nodes: [], edges: [] });
-    const showGraphAsTable = ref(false);
-    const graphActiveTab = ref("nodes");
-    const testCases = ref([]);
-    const showJsonView = ref(false);
-    const detailDialogVisible = ref(false);
-    const selectedTestCase = ref(null);
-    const graphContainer = ref(null);
-    const chartInitialized = ref(false);
-    let chartInstance = null;
+} from "@element-plus/icons-vue";
+import { AIApi, type GraphNode, type GraphEdge, type TaskStatusResponse } from '@/api/testcasegen';
 
-    // 计算当前步骤
-    const activeStep = computed(() => {
-    if (testCases.value.length > 0) return 3;
-    if (graphData.nodes.length > 0) return 2;
-    if (selectedFile.value) return 1;
-    return 0;
-    });
+declare global {
+    interface Window { __lastParsedContent?: string }
+}
 
-    // 计算属性
-    const hasGraphData = computed(() => {
-    return graphData.nodes && graphData.nodes.length > 0;
-    });
+export default {
+    name: "TestCasesGen",
+    components: {
+        Document, Upload, UploadFilled, Connection, MagicStick, Download,
+        Close, CircleCheckFilled, CircleCloseFilled, Loading, DataLine, Grid, View,
+    },
+    setup() {
+        // ========== 响应式数据 ==========
+        const selectedFile = ref<any>(null);
+        const parsingLoading = ref(false);
+        const generatingLoading = ref(false);
+        const parseStatus = ref("");
+        const parseStatusType = ref("info");
+        const generateStatus = ref("");
+        const generateStatusType = ref("info");
+        const graphData = reactive<{ nodes: any[]; edges: any[] }>({ nodes: [], edges: [] });
+        const testCases = ref<any[]>([]);
+        const detailDialogVisible = ref(false);
+        const selectedTestCase = ref<any>(null);
+        const graphContainer = ref<HTMLElement | null>(null);
+        let chartInstance: any = null;
 
-    const highPriorityCount = computed(() => {
-    return testCases.value.filter((tc) => tc.priority === "高").length;
-    });
+        // ========== 异步任务管理 ==========
+        let pollTimer: ReturnType<typeof setTimeout> | null = null;
+        let pollingActive = false;
+        let componentMounted = false;
+        const POLL_INTERVAL = 3000;
+        const TASK_STORAGE_KEY = 'tcgen_active_tasks';
+        const PARSED_CONTENT_KEY = 'tcgen_parsed_content';
+        const activeParseTaskId = ref<string | null>(null);
+        const activeGenerateTaskId = ref<string | null>(null);
 
-    const mediumPriorityCount = computed(() => {
-    return testCases.value.filter((tc) => tc.priority === "中").length;
-    });
-
-    const lowPriorityCount = computed(() => {
-    return testCases.value.filter((tc) => tc.priority === "低").length;
-    });
-
-    // 方法
-    const handleFileChange = (file) => {
-    selectedFile.value = file.raw;
-    ElMessage.success(`已选择文件: ${file.name}`);
-    };
-
-    const handleFileRemove = () => {
-    selectedFile.value = null;
-    ElMessage.info("已移除文件");
-    };
-
-    const formatFileSize = (bytes) => {
-    if (bytes === 0) return "0 Bytes";
-    const k = 1024;
-    const sizes = ["Bytes", "KB", "MB", "GB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
-    };
-
-    const getStepText = (step) => {
-    const steps = ["等待开始", "文档已上传", "知识图谱已生成", "测试用例已生成"];
-    return steps[step] || "处理完成";
-    };
-
-    // 模拟调用文档解析接口
-    const parseDocument = async () => {
-        if (!selectedFile.value) {
-            ElMessage.warning("请先选择文档");
-            
-            return;
-        }
-
-        parsingLoading.value = true;
-        parseStatus.value = "正在解析文档并存入知识图谱...";
-        parseStatusType.value = "info";
-
-        // 模拟API调用延迟
-        console.log(selectedFile)
-        const formData = new FormData()
-        formData.append('file', selectedFile.value)
-        formData.append('filename', selectedFile.value.name)
-        formData.append('uploadTime', new Date().toISOString())
-        const docx_parse = await AIApi.loaddocxfile(formData)
-        console.log('解析成功:', docx_parse)
-        console.log('解析成功:',typeof docx_parse)
-
-        const docx_string =docx_parse.data.raw_content
-        console.log(docx_string)
-        const testcases = await AIApi.generateTestCases(docx_string)
-
-    };
-
-    // 模拟调用用例生成接口
-    const generateTestCases = async () => {
-    if (!hasGraphData.value) {
-        ElMessage.warning("请先解析文档并生成知识图谱");
-        return;
-    }
-
-    generatingLoading.value = true;
-    generateStatus.value = "正在基于知识图谱生成测试用例...";
-    generateStatusType.value = "info";
-
-    // 模拟API调用延迟
-    setTimeout(async () => {
-        try {
-        // 模拟响应数据
-        const mockResponse = {
-            success: true,
-            message: "测试用例生成成功",
-            test_cases: [
-            {
-                id: "TC001",
-                name: "用户登录-正确用户名密码",
-                description: "验证使用正确的用户名和密码可以成功登录",
-                priority: "高",
-                status: "未执行",
-                preconditions: "用户已注册并拥有有效账号",
-                steps: [
-                { action: "打开登录页面", expected: "登录页面正常显示" },
-                { action: "输入正确的用户名", expected: "用户名输入框显示输入内容" },
-                { action: "输入正确的密码", expected: "密码输入框显示掩码字符" },
-                { action: "点击登录按钮", expected: "系统跳转到用户主页" },
-                ],
-                created_at: "2023-10-15 10:30:00",
-                updated_at: "2023-10-15 10:30:00",
-            },
-            {
-                id: "TC002",
-                name: "用户登录-错误密码",
-                description: "验证使用错误密码登录会失败",
-                priority: "高",
-                status: "未执行",
-                preconditions: "用户已注册并拥有有效账号",
-                steps: [
-                { action: "打开登录页面", expected: "登录页面正常显示" },
-                { action: "输入正确的用户名", expected: "用户名输入框显示输入内容" },
-                { action: "输入错误的密码", expected: "密码输入框显示掩码字符" },
-                { action: "点击登录按钮", expected: "系统显示密码错误提示" },
-                ],
-                created_at: "2023-10-15 10:32:00",
-                updated_at: "2023-10-15 10:32:00",
-            },
-            {
-                id: "TC003",
-                name: "用户登录-用户名为空",
-                description: "验证用户名为空时登录会失败",
-                priority: "中",
-                status: "未执行",
-                preconditions: "无",
-                steps: [
-                { action: "打开登录页面", expected: "登录页面正常显示" },
-                {
-                    action: "不输入用户名，直接输入密码",
-                    expected: "密码输入框显示掩码字符",
-                },
-                { action: "点击登录按钮", expected: "系统显示用户名不能为空提示" },
-                ],
-                created_at: "2023-10-15 10:35:00",
-                updated_at: "2023-10-15 10:35:00",
-            },
-            {
-                id: "TC004",
-                name: "用户登录-密码为空",
-                description: "验证密码为空时登录会失败",
-                priority: "中",
-                status: "未执行",
-                preconditions: "无",
-                steps: [
-                { action: "打开登录页面", expected: "登录页面正常显示" },
-                {
-                    action: "输入用户名，不输入密码",
-                    expected: "用户名输入框显示输入内容",
-                },
-                { action: "点击登录按钮", expected: "系统显示密码不能为空提示" },
-                ],
-                created_at: "2023-10-15 10:38:00",
-                updated_at: "2023-10-15 10:38:00",
-            },
-            {
-                id: "TC005",
-                name: "用户登录-密码加密传输",
-                description: "验证密码在传输过程中是加密的",
-                priority: "低",
-                status: "未执行",
-                preconditions: "已安装网络抓包工具",
-                steps: [
-                { action: "打开网络抓包工具", expected: "工具正常启动" },
-                { action: "在登录页面输入密码", expected: "密码输入框显示掩码字符" },
-                { action: "点击登录按钮", expected: "网络请求中的密码字段是加密的" },
-                ],
-                created_at: "2023-10-15 10:40:00",
-                updated_at: "2023-10-15 10:40:00",
-            },
-            ],
+        const saveActiveTasks = () => {
+            const tasks: Record<string, string> = {};
+            if (activeParseTaskId.value) tasks.parse_graph = activeParseTaskId.value;
+            if (activeGenerateTaskId.value) tasks.generate_cases = activeGenerateTaskId.value;
+            sessionStorage.setItem(TASK_STORAGE_KEY, JSON.stringify(tasks));
         };
 
-        if (mockResponse.success) {
-            testCases.value = mockResponse.test_cases;
-            generateStatus.value = mockResponse.message;
-            generateStatusType.value = "success";
-            ElMessage.success("测试用例生成成功");
-        } else {
-            generateStatus.value = "测试用例生成失败";
-            generateStatusType.value = "error";
-            ElMessage.error("测试用例生成失败");
-        }
-        } catch (error) {
-        generateStatus.value = `生成出错: ${error.message}`;
-        generateStatusType.value = "error";
-        ElMessage.error("测试用例生成过程中发生错误");
-        } finally {
-        generatingLoading.value = false;
-        }
-    }, 3000);
-    };
-
-    // 初始化知识图谱可视化
-    const initKnowledgeGraph = async () => {
-    if (!graphContainer.value || graphData.nodes.length === 0) return;
-
-    try {
-        // 动态引入 ECharts
-        const echarts = await import("echarts");
-
-        // 销毁之前的实例
-        if (chartInstance) {
-        chartInstance.dispose();
-        chartInstance = null;
-        }
-
-        chartInstance = echarts.init(graphContainer.value);
-        chartInitialized.value = true;
-
-        // 准备图表数据
-        const categories = [
-        { name: "需求", itemStyle: { color: "#6366f1" } },
-        { name: "功能", itemStyle: { color: "#10b981" } },
-        { name: "测试点", itemStyle: { color: "#f59e0b" } },
-        { name: "组件", itemStyle: { color: "#ef4444" } },
-        ];
-
-        const nodes = graphData.nodes.map((node) => ({
-        id: node.id,
-        name: node.name,
-        category: categories.findIndex((cat) => cat.name === node.label),
-        symbolSize:
-            node.type === "requirement" ? 45 : node.type === "function" ? 35 : 25,
-        itemStyle: {
-            color: getNodeColor(node.type),
-        },
-        label: {
-            show: true,
-            position: "right",
-            fontSize: 12,
-            formatter:
-            node.name.length > 10 ? node.name.substring(0, 10) + "..." : node.name,
-        },
-        }));
-
-        const edges = graphData.edges.map((edge) => ({
-        source: edge.source,
-        target: edge.target,
-        label: {
-            show: true,
-            formatter: edge.label,
-            fontSize: 10,
-        },
-        lineStyle: {
-            width: 1.5,
-            curveness: 0.2,
-            color: "#94a3b8",
-        },
-        }));
-
-        const option = {
-        tooltip: {
-            trigger: "item",
-            formatter: function (params) {
-            if (params.dataType === "node") {
-                const node = graphData.nodes.find((n) => n.id === params.data.id);
-                return `
-                <div style="font-weight:bold; margin-bottom:5px">${node.name}</div>
-                <div>类型: ${node.label}</div>
-                ${
-                    node.properties && Object.keys(node.properties).length > 0
-                    ? `<div style="margin-top:5px">属性: ${JSON.stringify(
-                        node.properties
-                        )}</div>`
-                    : ""
+        const restoreActiveTasks = () => {
+            try {
+                const stored = sessionStorage.getItem(TASK_STORAGE_KEY);
+                if (stored) {
+                    const tasks = JSON.parse(stored);
+                    if (tasks.parse_graph) activeParseTaskId.value = tasks.parse_graph;
+                    if (tasks.generate_cases) activeGenerateTaskId.value = tasks.generate_cases;
                 }
-                `;
-            } else if (params.dataType === "edge") {
-                return `关系: ${params.data.label?.formatter || "关联"}`;
-            }
-            },
-        },
-        legend: {
-            data: categories.map((c) => c.name),
-            textStyle: {
-            color: "#64748b",
-            },
-            top: "bottom",
-        },
-        animationDuration: 1500,
-        animationEasingUpdate: "quinticInOut",
-        series: [
-            {
-            type: "graph",
-            layout: "force",
-            force: {
-                repulsion: 250,
-                edgeLength: 100,
-                gravity: 0.1,
-            },
-            draggable: true,
-            data: nodes,
-            links: edges,
-            categories: categories,
-            roam: true,
-            label: {
-                show: true,
-                position: "right",
-            },
-            lineStyle: {
-                color: "source",
-                curveness: 0.3,
-            },
-            emphasis: {
-                focus: "adjacency",
-                lineStyle: {
-                width: 3,
-                },
-            },
-            },
-        ],
+            } catch { /* ignore */ }
         };
 
-        chartInstance.setOption(option);
+        const cleanupTask = (taskType: 'parse_graph' | 'generate_cases', reason: string) => {
+            if (taskType === 'parse_graph') {
+                activeParseTaskId.value = null;
+                parsingLoading.value = false;
+                parseStatus.value = reason;
+                parseStatusType.value = "error";
+            } else {
+                activeGenerateTaskId.value = null;
+                generatingLoading.value = false;
+                generateStatus.value = reason;
+                generateStatusType.value = "error";
+            }
+            saveActiveTasks();
+            if (!activeParseTaskId.value && !activeGenerateTaskId.value) stopPolling();
+        };
 
-        // 响应窗口大小变化
-        window.addEventListener("resize", handleResize);
-    } catch (error) {
-        console.error("初始化图表失败:", error);
-    }
-    };
+        const startPolling = () => {
+            if (pollingActive) return;
+            pollingActive = true;
+            scheduleNextPoll();
+        };
 
-    // 处理窗口大小变化
-    const handleResize = () => {
-    if (chartInstance) {
-        chartInstance.resize();
-    }
-    };
+        const scheduleNextPoll = () => {
+            if (!pollingActive) return;
+            if (pollTimer) clearTimeout(pollTimer);
+            pollTimer = setTimeout(pollAllTasks, POLL_INTERVAL);
+        };
 
-    // 获取节点颜色
-    const getNodeColor = (type) => {
-    switch (type) {
-        case "requirement":
-        return "#6366f1";
-        case "function":
-        return "#10b981";
-        case "test_point":
-        return "#f59e0b";
-        case "component":
-        return "#ef4444";
-        default:
-        return "#8b5cf6";
-    }
-    };
+        const stopPolling = () => {
+            pollingActive = false;
+            if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
+        };
 
-    // 获取节点标签类型
-    const getNodeTagType = (type) => {
-    switch (type) {
-        case "requirement":
-        return "primary";
-        case "function":
-        return "success";
-        case "test_point":
-        return "warning";
-        case "component":
-        return "danger";
-        default:
-        return "info";
-    }
-    };
+        const pollAllTasks = async () => {
+            if (!componentMounted || !pollingActive) return;
 
-    // 格式化属性显示
-    const formatProperties = (properties) => {
-    if (!properties || Object.keys(properties).length === 0) return "无";
-    return Object.entries(properties)
-        .map(([key, value]) => `${key}: ${value}`)
-        .join(", ");
-    };
+            const taskIds: Array<{ id: string; type: 'parse_graph' | 'generate_cases' }> = [];
+            if (activeParseTaskId.value) taskIds.push({ id: activeParseTaskId.value, type: 'parse_graph' });
+            if (activeGenerateTaskId.value) taskIds.push({ id: activeGenerateTaskId.value, type: 'generate_cases' });
 
-    // 获取节点名称
-    const getNodeName = (id) => {
-    const node = graphData.nodes.find((n) => n.id === id);
-    return node ? node.name : id;
-    };
+            if (taskIds.length === 0) { stopPolling(); return; }
 
-    // 查看用例详情
-    const viewTestCaseDetail = (testCase) => {
-    selectedTestCase.value = testCase;
-    detailDialogVisible.value = true;
-    };
+            for (const task of taskIds) {
+                if (!componentMounted || !pollingActive) return;
+                try {
+                    const status: TaskStatusResponse = await AIApi.getTaskStatus(task.id);
+                    if (!componentMounted || !pollingActive) return;
+                    await handleTaskResult(task.type, status);
+                    if (!componentMounted || !pollingActive) return;
+                } catch (error: any) {
+                    if (!componentMounted) return;
+                    if (error?.response?.status === 404) {
+                        const label = task.type === 'parse_graph' ? '文档解析' : '用例生成';
+                        cleanupTask(task.type, `${label}任务已失效，请重新操作`);
+                        ElMessage.warning(`${label}任务已失效，请重新提交`);
+                        return;
+                    }
+                }
+            }
 
-    // 导出到Excel
-    const exportToExcel = () => {
-    if (testCases.value.length === 0) {
-        ElMessage.warning("没有可导出的测试用例");
-        return;
-    }
+            if (componentMounted && pollingActive && (activeParseTaskId.value || activeGenerateTaskId.value)) {
+                scheduleNextPoll();
+            }
+        };
 
-    ElMessageBox.confirm("测试用例将导出为Excel格式，是否继续？", "导出确认", {
-        confirmButtonText: "导出",
-        cancelButtonText: "取消",
-        type: "warning",
-    })
-        .then(() => {
-        try {
-            // 准备Excel数据
-            const worksheetData = testCases.value.map((tc) => ({
-            用例ID: tc.id,
-            用例名称: tc.name,
-            描述: tc.description,
-            优先级: tc.priority,
-            状态: tc.status,
-            前置条件: tc.preconditions || "无",
-            测试步骤: tc.steps
-                .map((step) => `· ${step.action} (预期: ${step.expected})`)
-                .join("\n"),
-            创建时间: tc.created_at,
-            最后更新: tc.updated_at,
-            }));
+        const handleTaskResult = async (taskType: 'parse_graph' | 'generate_cases', status: TaskStatusResponse) => {
+            if (!componentMounted) return;
 
-            // 创建工作表
-            const worksheet = XLSX.utils.json_to_sheet(worksheetData);
+            if (status.status === 'processing' || status.status === 'pending') {
+                if (taskType === 'parse_graph') {
+                    parseStatus.value = status.status === 'pending' ? "任务排队中..." : "正在构建知识图谱...";
+                    parseStatusType.value = "info";
+                    parsingLoading.value = true;
+                } else {
+                    generateStatus.value = status.status === 'pending' ? "任务排队中..." : "正在生成测试用例...";
+                    generateStatusType.value = "info";
+                    generatingLoading.value = true;
+                }
+            } else if (status.status === 'completed' && status.result) {
+                if (taskType === 'parse_graph') {
+                    activeParseTaskId.value = null;
+                    parsingLoading.value = false;
+                    const nodes = status.result?.graph_nodes;
+                    const edges = status.result?.graph_edges;
+                    if (nodes && nodes.length > 0) {
+                        graphData.nodes = nodes.map((n: GraphNode, idx: number) => ({
+                            id: n.id || `n${idx}`, name: n.name, label: n.label, type: n.type, properties: n.properties || {},
+                        }));
+                    }
+                    if (edges && edges.length > 0) {
+                        graphData.edges = edges.map((e: GraphEdge, idx: number) => ({
+                            source: e.source || `s${idx}`, target: e.target || `t${idx}`, label: e.label, properties: e.properties || {},
+                        }));
+                    }
+                    if (graphData.nodes.length > 0) {
+                        await nextTick();
+                        if (!componentMounted) return;
+                        await initKnowledgeGraph();
+                    }
+                    const elapsed = status.result.processing_time?.toFixed(1) || '0';
+                    parseStatus.value = `解析完成 (${elapsed}s) — ${status.result.message || ''}`;
+                    parseStatusType.value = "success";
+                    ElMessage.success("知识图谱构建成功");
+                } else {
+                    activeGenerateTaskId.value = null;
+                    generatingLoading.value = false;
+                    const cases = status.result?.test_cases;
+                    if (cases && cases.length > 0) {
+                        testCases.value = cases;
+                        const elapsed = status.result?.processing_time?.toFixed(1) || '0';
+                        generateStatus.value = `生成完成 (${elapsed}s) — 共 ${cases.length} 条用例`;
+                        generateStatusType.value = "success";
+                        ElMessage.success(`成功生成 ${cases.length} 条测试用例`);
+                    } else {
+                        generateStatus.value = "未生成任何测试用例，请检查文档内容";
+                        generateStatusType.value = "error";
+                        ElMessage.warning("未生成任何测试用例");
+                    }
+                }
+                saveActiveTasks();
+                if (!activeParseTaskId.value && !activeGenerateTaskId.value) stopPolling();
+            } else if (status.status === 'failed') {
+                if (taskType === 'parse_graph') {
+                    activeParseTaskId.value = null;
+                    parsingLoading.value = false;
+                    parseStatus.value = `解析失败: ${status.error || '未知错误'}`;
+                    parseStatusType.value = "error";
+                    ElMessage.error(status.error || "文档解析失败");
+                } else {
+                    activeGenerateTaskId.value = null;
+                    generatingLoading.value = false;
+                    generateStatus.value = `生成失败: ${status.error || '未知错误'}`;
+                    generateStatusType.value = "error";
+                    ElMessage.error(status.error || "用例生成失败");
+                }
+                saveActiveTasks();
+                if (!activeParseTaskId.value && !activeGenerateTaskId.value) stopPolling();
+            }
+        };
 
-            // 设置列宽
-            const colWidths = [
-            { wch: 10 }, // 用例ID
-            { wch: 25 }, // 用例名称
-            { wch: 40 }, // 描述
-            { wch: 8 }, // 优先级
-            { wch: 10 }, // 状态
-            { wch: 30 }, // 前置条件
-            { wch: 60 }, // 测试步骤
-            { wch: 18 }, // 创建时间
-            { wch: 18 }, // 最后更新
-            ];
-            worksheet["!cols"] = colWidths;
-
-            // 创建工作簿
-            const workbook = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(workbook, worksheet, "测试用例");
-
-            // 生成Excel文件
-            XLSX.writeFile(workbook, `测试用例_${new Date().getTime()}.xlsx`);
-
-            ElMessage.success("测试用例已成功导出为Excel文件");
-        } catch (error) {
-            ElMessage.error(`导出失败: ${error.message}`);
-        }
-        })
-        .catch(() => {
-        // 用户取消
+        // ========== 计算属性 ==========
+        const activeStep = computed(() => {
+            if (testCases.value.length > 0) return 3;
+            if (graphData.nodes.length > 0) return 2;
+            if (selectedFile.value) return 1;
+            return 0;
         });
-    };
 
-    // 复制JSON
-    const copyJson = async () => {
-    try {
-        const jsonText = JSON.stringify(testCases.value, null, 2);
-        await navigator.clipboard.writeText(jsonText);
-        ElMessage.success("JSON数据已复制到剪贴板");
-    } catch (err) {
-        ElMessage.error("复制失败，请手动复制");
-    }
-    };
+        const hasGraphData = computed(() => graphData.nodes.length > 0);
 
-    // 格式化JSON显示
-    const formatJson = (data) => {
-    return JSON.stringify(data, null, 2);
-    };
+        // ========== 方法 ==========
+        const handleFileChange = (file: any) => {
+            selectedFile.value = file.raw;
+            ElMessage.success(`已选择: ${file.name}`);
+        };
 
-    // 表格行样式
-    const tableRowClassName = ({ row }) => {
-    return `node-row-${row.type}`;
-    };
+        const handleFileRemove = () => {
+            selectedFile.value = null;
+        };
 
-    const testCaseRowClassName = ({ row }) => {
-    return `case-row-${row.priority}`;
-    };
+        const formatFileSize = (bytes: number) => {
+            if (bytes === 0) return "0 B";
+            const k = 1024;
+            const sizes = ["B", "KB", "MB", "GB"];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+        };
 
-    // 生命周期钩子
-    onMounted(() => {
-    // 可以在这里初始化一些数据
-    });
+        const parseDocument = async () => {
+            if (!selectedFile.value) { ElMessage.warning("请先选择文档"); return; }
 
-    onUnmounted(() => {
-    // 清理图表实例
-    if (chartInstance) {
-        chartInstance.dispose();
-        chartInstance = null;
-    }
-    window.removeEventListener("resize", handleResize);
-    });
+            parsingLoading.value = true;
+            parseStatus.value = "正在上传并解析文档...";
+            parseStatusType.value = "info";
+            graphData.nodes = [];
+            graphData.edges = [];
+            testCases.value = [];
+            generateStatus.value = "";
+            generateStatusType.value = "info";
+            generatingLoading.value = false;
+            activeGenerateTaskId.value = null;
+            saveActiveTasks();
 
-    return {
-    selectedFile,
-    parsingLoading,
-    generatingLoading,
-    parseStatus,
-    parseStatusType,
-    generateStatus,
-    generateStatusType,
-    graphData,
-    showGraphAsTable,
-    graphActiveTab,
-    testCases,
-    showJsonView,
-    detailDialogVisible,
-    selectedTestCase,
-    graphContainer,
-    chartInitialized,
-    activeStep,
-    hasGraphData,
-    highPriorityCount,
-    mediumPriorityCount,
-    lowPriorityCount,
-    handleFileChange,
-    handleFileRemove,
-    formatFileSize,
-    getStepText,
-    parseDocument,
-    generateTestCases,
-    formatProperties,
-    getNodeName,
-    getNodeTagType,
-    viewTestCaseDetail,
-    exportToExcel,
-    copyJson,
-    formatJson,
-    tableRowClassName,
-    testCaseRowClassName,
-    };
-},
+            try {
+                const formData = new FormData();
+                formData.append('file', selectedFile.value);
+                formData.append('filename', selectedFile.value.name);
+                formData.append('uploadTime', new Date().toISOString());
+
+                const docResult = await AIApi.loaddocxfile(formData);
+                if (!componentMounted) return;
+                if (!docResult.success) throw new Error(docResult.error || "文档解析失败");
+
+                const rawContent = docResult.raw_content;
+                if (!rawContent || rawContent.trim().length < 10) throw new Error("文档内容为空或过短");
+
+                sessionStorage.setItem(PARSED_CONTENT_KEY, rawContent);
+                window.__lastParsedContent = rawContent;
+
+                const taskResult = await AIApi.submitTask('parse_graph', rawContent);
+                if (!componentMounted) return;
+                if (!taskResult.task_id) throw new Error("提交任务失败");
+
+                activeParseTaskId.value = taskResult.task_id;
+                saveActiveTasks();
+                startPolling();
+                ElMessage.info("解析任务已提交，后台处理中");
+            } catch (error: any) {
+                if (!componentMounted) return;
+                const msg = error?.response?.data?.detail || error?.message || "文档解析失败";
+                parseStatus.value = `解析失败: ${msg}`;
+                parseStatusType.value = "error";
+                ElMessage.error(msg);
+                parsingLoading.value = false;
+            }
+        };
+
+        const generateTestCases = async () => {
+            if (!hasGraphData.value && !window.__lastParsedContent) {
+                ElMessage.warning("请先解析文档并生成知识图谱");
+                return;
+            }
+
+            generatingLoading.value = true;
+            generateStatus.value = "正在提交用例生成任务...";
+            generateStatusType.value = "info";
+
+            try {
+                const requirementText = sessionStorage.getItem(PARSED_CONTENT_KEY) || window.__lastParsedContent || "";
+                const taskResult = await AIApi.submitTask('generate_cases', requirementText);
+                if (!componentMounted) return;
+                if (!taskResult.task_id) throw new Error("提交任务失败");
+
+                activeGenerateTaskId.value = taskResult.task_id;
+                saveActiveTasks();
+                startPolling();
+                ElMessage.info("用例生成任务已提交，后台处理中");
+            } catch (error: any) {
+                if (!componentMounted) return;
+                const msg = error?.response?.data?.detail || error?.message || "用例生成失败";
+                generateStatus.value = `生成失败: ${msg}`;
+                generateStatusType.value = "error";
+                ElMessage.error(msg);
+                generatingLoading.value = false;
+            }
+        };
+
+        // ========== 知识图谱可视化 ==========
+        const TYPE_DISPLAY_MAP: Record<string, string> = {
+            FunctionalRequirement: '功能需求', NonFunctionalRequirement: '非功能需求',
+            BusinessRule: '业务规则', Constraint: '约束条件', UserStory: '用户故事',
+            UseCase: '用例场景', BusinessGoal: '业务目标', Actor: '角色',
+            SystemComponent: '系统组件', Document: '文档', Requirement: '需求',
+            Entity: '实体', TestPoint: '测试点',
+        };
+        const TYPE_COLOR_PALETTE = ['#6366f1','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#06b6d4','#84cc16','#f97316','#64748b','#14b8a6','#a855f7'];
+        const typeColorMap: Record<string, string> = {};
+        let colorIdx = 0;
+        const getNodeColor = (type: string): string => {
+            if (!typeColorMap[type]) { typeColorMap[type] = TYPE_COLOR_PALETTE[colorIdx++ % TYPE_COLOR_PALETTE.length]; }
+            return typeColorMap[type] as string;
+        };
+        const getDisplayName = (type: string, label: string) => {
+            if (TYPE_DISPLAY_MAP[type]) return TYPE_DISPLAY_MAP[type];
+            if (TYPE_DISPLAY_MAP[label]) return TYPE_DISPLAY_MAP[label];
+            return label || type || '未知';
+        };
+
+        const handleResize = () => { if (chartInstance) chartInstance.resize(); };
+
+        const initKnowledgeGraph = async () => {
+            if (!graphContainer.value || graphData.nodes.length === 0) return;
+            try {
+                const echarts = await import("echarts");
+                if (chartInstance) { chartInstance.dispose(); chartInstance = null; }
+
+                const container = graphContainer.value;
+                if (container.clientWidth === 0) { container.style.width = '100%'; container.style.height = '420px'; }
+                chartInstance = echarts.init(container);
+
+                const typeSet = new Set<string>();
+                graphData.nodes.forEach(n => typeSet.add(n.type || n.label || 'Unknown'));
+                const categories = Array.from(typeSet).map(t => ({ name: getDisplayName(t, ''), itemStyle: { color: getNodeColor(t) } }));
+                const typeToIdx: Record<string, number> = {};
+                Array.from(typeSet).forEach((t, i) => { typeToIdx[t] = i; });
+
+                const nodes = graphData.nodes.map(n => {
+                    const key = n.type || n.label || 'Unknown';
+                    return {
+                        id: n.id, name: n.name, category: typeToIdx[key] ?? 0, symbolSize: 35,
+                        itemStyle: { color: getNodeColor(key) },
+                        label: { show: true, position: 'right', fontSize: 11, formatter: n.name.length > 12 ? n.name.substring(0, 12) + '...' : n.name },
+                        _raw: n,
+                    };
+                });
+
+                const edges = graphData.edges.map(e => ({
+                    source: e.source, target: e.target,
+                    label: { show: graphData.edges.length <= 60, formatter: e.label || '', fontSize: 9 },
+                    lineStyle: { width: 1.2, curveness: 0.2, color: '#94a3b8' },
+                }));
+
+                chartInstance.setOption({
+                    tooltip: {
+                        trigger: 'item',
+                        formatter: (params: any) => {
+                            if (params.dataType === 'node') {
+                                const r = params.data._raw;
+                                return `<b>${r.name}</b><br>类型: ${getDisplayName(r.type, r.label)}${r.description ? '<br>' + r.description : ''}`;
+                            }
+                            return `关系: ${params.data.label?.formatter || params.data.label || '关联'}`;
+                        },
+                    },
+                    legend: { data: categories.map(c => c.name), textStyle: { color: '#64748b' }, top: 'bottom', type: 'scroll' },
+                    animationDuration: 1200,
+                    animationEasingUpdate: 'quinticInOut',
+                    series: [{
+                        type: 'graph', layout: 'force',
+                        force: { repulsion: 300, edgeLength: [80, 160], gravity: 0.08 },
+                        draggable: true, data: nodes, links: edges, categories,
+                        roam: true, lineStyle: { color: 'source', curveness: 0.2 },
+                        emphasis: { focus: 'adjacency', lineStyle: { width: 3 } },
+                    }],
+                });
+                window.addEventListener('resize', handleResize);
+            } catch (error) {
+                console.error('初始化图表失败:', error);
+                ElMessage.warning('知识图谱渲染失败');
+            }
+        };
+
+        // ========== 用例操作 ==========
+        const viewTestCaseDetail = (testCase: any) => {
+            selectedTestCase.value = testCase;
+            detailDialogVisible.value = true;
+        };
+
+        const exportToExcel = async () => {
+            if (testCases.value.length === 0) { ElMessage.warning("没有可导出的测试用例"); return; }
+            try {
+                const worksheetData = testCases.value.map((tc) => ({
+                    用例ID: tc.id, 用例名称: tc.name, 描述: tc.description,
+                    所属模块: tc.module || '', 优先级: tc.priority, 状态: tc.status,
+                    前置条件: tc.preconditions || '无',
+                    测试步骤: (tc.steps || [])
+                        .map((step: any, i: number) => {
+                            if (typeof step === 'string') return `${i + 1}. ${step}`;
+                            if (!step) return '';
+                            return `${i + 1}. ${step.action || ''}${step.expected ? ' (预期: ' + step.expected + ')' : ''}`;
+                        })
+                        .join('\n'),
+                    创建时间: tc.created_at, 最后更新: tc.updated_at,
+                }));
+
+                const worksheet = XLSX.utils.json_to_sheet(worksheetData);
+                worksheet['!cols'] = [
+                    { wch: 10 }, { wch: 28 }, { wch: 45 }, { wch: 15 },
+                    { wch: 8 }, { wch: 10 }, { wch: 30 }, { wch: 60 },
+                    { wch: 18 }, { wch: 18 },
+                ];
+                const workbook = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(workbook, worksheet, '测试用例');
+                const wbOut = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+                const blob = new Blob([wbOut], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                const defaultName = `测试用例_${new Date().toLocaleDateString('zh-CN').replace(/\//g, '')}.xlsx`;
+
+                if ('showSaveFilePicker' in window) {
+                    try {
+                        const handle = await (window as any).showSaveFilePicker({
+                            suggestedName: defaultName,
+                            types: [{ description: 'Excel 文件', accept: { 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'] } }],
+                        });
+                        const writable = await handle.createWritable();
+                        await writable.write(blob);
+                        await writable.close();
+                        ElMessage.success(`已导出 ${testCases.value.length} 条测试用例`);
+                        return;
+                    } catch (e: any) { if (e.name === 'AbortError') return; }
+                }
+
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = defaultName;
+                a.click();
+                URL.revokeObjectURL(url);
+                ElMessage.success(`已导出 ${testCases.value.length} 条测试用例`);
+            } catch (error: any) {
+                ElMessage.error(`导出失败: ${error.message}`);
+            }
+        };
+
+        const testCaseRowClassName = ({ row }: { row: any }) => `case-row-${row.priority}`;
+
+        // ========== 生命周期 ==========
+        onMounted(async () => {
+            componentMounted = true;
+            sessionStorage.removeItem('tcgen_graph_data');
+            sessionStorage.removeItem('tcgen_testcases');
+
+            const storedContent = sessionStorage.getItem(PARSED_CONTENT_KEY);
+            if (storedContent) window.__lastParsedContent = storedContent;
+
+            restoreActiveTasks();
+
+            if (activeParseTaskId.value || activeGenerateTaskId.value) {
+                if (activeParseTaskId.value) {
+                    parsingLoading.value = true;
+                    parseStatus.value = "检测到未完成的解析任务，正在恢复...";
+                    parseStatusType.value = "info";
+                }
+                if (activeGenerateTaskId.value) {
+                    generatingLoading.value = true;
+                    generateStatus.value = "检测到未完成的生成任务，正在恢复...";
+                    generateStatusType.value = "info";
+                }
+                startPolling();
+                await pollAllTasks();
+            }
+        });
+
+        onUnmounted(() => {
+            componentMounted = false;
+            stopPolling();
+            if (chartInstance) { chartInstance.dispose(); chartInstance = null; }
+            window.removeEventListener("resize", handleResize);
+        });
+
+        return {
+            selectedFile, parsingLoading, generatingLoading,
+            parseStatus, parseStatusType, generateStatus, generateStatusType,
+            graphData, testCases, detailDialogVisible, selectedTestCase,
+            graphContainer, activeStep, hasGraphData,
+            handleFileChange, handleFileRemove, formatFileSize,
+            parseDocument, generateTestCases, viewTestCaseDetail, exportToExcel,
+            testCaseRowClassName,
+        };
+    },
 };
 </script>
 
 <style scoped>
-/* 全局样式 */
-:root {
---primary-color: #6366f1;
---primary-light: #818cf8;
---primary-dark: #4f46e5;
---primary-gradient: linear-gradient(135deg, #6366f1, #4f46e5);
---success-color: #10b981;
---success-light: #34d399;
---warning-color: #f59e0b;
---warning-light: #fbbf24;
---danger-color: #ef4444;
---danger-light: #f87171;
---info-color: #3b82f6;
---info-light: #60a5fa;
---bg-color: #f8fafc;
---card-bg: rgba(255, 255, 255, 0.98);
---text-primary: #1e293b;
---text-secondary: #64748b;
---text-light: #94a3b8;
---border-color: #e2e8f0;
---border-light: #f1f5f9;
---shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
---shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
---shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
---shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
---glass-border: rgba(255, 255, 255, 0.8);
---glass-shadow: 0 8px 32px rgba(99, 102, 241, 0.1);
-}
-
-.document-processor {
-min-height: 100vh;
-background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
-    "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
-}
-
-/* 顶部导航栏 */
-.top-nav {
-background: var(--primary-gradient);
-box-shadow: var(--shadow-lg);
-position: relative;
-z-index: 100;
-}
-
-.top-nav::after {
-content: "";
-position: absolute;
-bottom: 0;
-left: 0;
-right: 0;
-height: 1px;
-background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-}
-
-.nav-content {
-max-width: 1400px;
-margin: 0 auto;
-padding: 0 24px;
-display: flex;
-justify-content: space-between;
-align-items: center;
-height: 70px;
-}
-
-.logo-section {
-display: flex;
-align-items: center;
-gap: 16px;
-}
-
-.logo-icon {
-width: 44px;
-height: 44px;
-background: rgba(255, 255, 255, 0.2);
-border-radius: 12px;
-display: flex;
-align-items: center;
-justify-content: center;
-backdrop-filter: blur(10px);
-box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
-
-.logo-text h1 {
-margin: 0;
-font-size: 22px;
-font-weight: 800;
-color: white;
-letter-spacing: -0.5px;
-text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.logo-text p {
-margin: 4px 0 0;
-font-size: 13px;
-color: rgba(255, 255, 255, 0.9);
-font-weight: 500;
-}
-
-.user-info {
-display: flex;
-align-items: center;
-gap: 12px;
-color: white;
-padding: 8px 12px;
-background: rgba(255, 255, 255, 0.15);
-border-radius: 12px;
-backdrop-filter: blur(10px);
-}
-
-.user-name {
-font-weight: 600;
-font-size: 14px;
-}
-
-/* 步骤指示器 */
-.process-steps-container {
-padding: 24px 24px 40px;
-max-width: 1400px;
-margin: 0 auto;
-}
-
-.process-steps {
-background: var(--card-bg);
-border-radius: 20px;
-box-shadow: var(--glass-shadow);
-border: 1px solid var(--glass-border);
-overflow: hidden;
-backdrop-filter: blur(10px);
-}
-
-.steps-header {
-padding: 24px 32px;
-border-bottom: 1px solid var(--border-light);
-background: linear-gradient(
-    135deg,
-    rgba(99, 102, 241, 0.05) 0%,
-    rgba(99, 102, 241, 0.02) 100%
-);
-}
-
-.steps-header h3 {
-margin: 0 0 8px;
-font-size: 20px;
-font-weight: 700;
-color: var(--text-primary);
-display: flex;
-align-items: center;
-gap: 10px;
-}
-
-.steps-header h3::before {
-content: "";
-display: block;
-width: 6px;
-height: 20px;
-background: var(--primary-color);
-border-radius: 3px;
-}
-
-.step-progress {
-display: flex;
-align-items: center;
-gap: 8px;
-font-size: 14px;
-color: var(--text-secondary);
-}
-
-.progress-text {
-color: var(--primary-color);
-font-weight: 600;
-}
-
-.steps-wrapper {
-padding: 40px 32px;
-}
-
-.steps-track {
-display: flex;
-justify-content: space-between;
-align-items: center;
-position: relative;
-margin: 0 20px;
-}
-
-.steps-track::before {
-content: "";
-position: absolute;
-top: 30px;
-left: 0;
-right: 0;
-height: 4px;
-background: var(--border-color);
-border-radius: 2px;
-z-index: 1;
-}
-
-.progress-bar {
-position: absolute;
-top: 30px;
-left: 0;
-height: 4px;
-background: var(--primary-gradient);
-border-radius: 2px;
-z-index: 2;
-transition: width 0.6s ease;
-}
-
-.step-item {
-display: flex;
-flex-direction: column;
-align-items: center;
-position: relative;
-z-index: 3;
-flex: 1;
-}
-
-.step-circle {
-width: 60px;
-height: 60px;
-border-radius: 50%;
-background: white;
-border: 4px solid var(--border-color);
-display: flex;
-align-items: center;
-justify-content: center;
-margin-bottom: 16px;
-position: relative;
-transition: all 0.3s ease;
-box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-}
-
-.step-item.active .step-circle {
-border-color: var(--primary-color);
-background: white;
-box-shadow: 0 6px 20px rgba(99, 102, 241, 0.3);
-}
-
-.step-item.completed .step-circle {
-border-color: var(--success-color);
-background: var(--success-color);
-}
-
-.step-number {
-font-size: 20px;
-font-weight: 700;
-color: var(--text-light);
-transition: all 0.3s ease;
-}
-
-.step-item.active .step-number {
-color: var(--primary-color);
-}
-
-.step-item.completed .step-number {
-display: none;
-}
-
-.step-check {
-position: absolute;
-top: 50%;
-left: 50%;
-transform: translate(-50%, -50%);
-color: white;
-font-size: 24px;
-}
-
-.step-label {
-font-size: 16px;
-font-weight: 600;
-color: var(--text-primary);
-margin-bottom: 4px;
-}
-
-.step-desc {
-font-size: 13px;
-color: var(--text-secondary);
-text-align: center;
-max-width: 120px;
-}
-
-/* 主要内容区域 */
-.content-wrapper {
-max-width: 1400px;
-margin: 0 auto;
-padding: 0 24px 40px;
-display: grid;
-grid-template-columns: 1fr 1fr;
-gap: 24px;
-}
-
-/* 玻璃卡片效果 */
-.glass-card {
-background: var(--card-bg);
-border: 1px solid var(--glass-border);
-border-radius: 20px;
-box-shadow: var(--glass-shadow);
-overflow: hidden;
-transition: all 0.3s ease;
-backdrop-filter: blur(10px);
-}
-
-.glass-card:hover {
-transform: translateY(-4px);
-box-shadow: var(--shadow-xl);
-}
-
-/* 卡片头部 */
-.card-header {
-padding: 24px;
-border-bottom: 1px solid var(--border-light);
-display: flex;
-justify-content: space-between;
-align-items: flex-start;
-background: linear-gradient(
-    135deg,
-    rgba(99, 102, 241, 0.05) 0%,
-    rgba(99, 102, 241, 0.02) 100%
-);
-}
-
-.card-header h3 {
-margin: 0 0 8px;
-font-size: 18px;
-font-weight: 700;
-color: var(--text-primary);
-}
-
-.card-header p {
-margin: 0;
-font-size: 14px;
-color: var(--text-secondary);
-}
-
-.title-section {
-display: flex;
-align-items: center;
-gap: 16px;
-margin-bottom: 8px;
-}
-
-.graph-stats {
-display: flex;
-gap: 8px;
-}
-
-.stat-tag {
-background: rgba(99, 102, 241, 0.1);
-border: none;
-color: var(--primary-color);
-font-weight: 500;
-}
-
-.stat-tag .el-icon {
-margin-right: 4px;
-}
-
-.header-icon {
-width: 44px;
-height: 44px;
-background: var(--primary-gradient);
-border-radius: 12px;
-display: flex;
-align-items: center;
-justify-content: center;
-color: white;
-margin-right: 16px;
-box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
-}
-
-.card-header > div:first-child {
-display: flex;
-align-items: flex-start;
-}
-
-.header-actions {
-display: flex;
-gap: 8px;
-align-items: center;
-}
-
-/* 卡片主体 */
-.card-body {
-padding: 24px;
-}
-
-/* 上传区域 */
-.upload-area {
-width: 100%;
-}
-
-:deep(.el-upload-dragger) {
-width: 100%;
-padding: 48px 24px;
-background: linear-gradient(
-    135deg,
-    rgba(99, 102, 241, 0.03) 0%,
-    rgba(99, 102, 241, 0.01) 100%
-);
-border: 2px dashed var(--border-color);
-border-radius: 16px;
-transition: all 0.3s ease;
-}
-
-:deep(.el-upload-dragger:hover) {
-border-color: var(--primary-color);
-background: linear-gradient(
-    135deg,
-    rgba(99, 102, 241, 0.08) 0%,
-    rgba(99, 102, 241, 0.04) 100%
-);
-transform: translateY(-2px);
-}
-
-.upload-content {
-display: flex;
-flex-direction: column;
-align-items: center;
-gap: 20px;
-}
-
-.upload-icon {
-width: 72px;
-height: 72px;
-background: white;
-border-radius: 50%;
-display: flex;
-align-items: center;
-justify-content: center;
-color: var(--primary-color);
-box-shadow: 0 8px 24px rgba(99, 102, 241, 0.2);
-transition: transform 0.3s ease;
-}
-
-:deep(.el-upload-dragger:hover) .upload-icon {
-transform: scale(1.05);
-}
-
-.upload-text h4 {
-margin: 0;
-font-size: 20px;
-font-weight: 700;
-color: var(--text-primary);
-}
-
-.upload-text p {
-margin: 8px 0 0;
-font-size: 14px;
-color: var(--text-secondary);
-}
-
-.upload-format {
-padding: 8px 16px;
-background: var(--primary-gradient);
-color: white;
-border-radius: 24px;
-font-size: 13px;
-font-weight: 600;
-letter-spacing: 0.5px;
-}
-
-.upload-tip {
-display: flex;
-align-items: center;
-justify-content: center;
-gap: 8px;
-margin-top: 16px;
-font-size: 13px;
-color: var(--text-secondary);
-padding: 8px 16px;
-background: rgba(99, 102, 241, 0.05);
-border-radius: 8px;
-}
-
-/* 已选择文件 */
-.selected-file {
-margin-top: 20px;
-padding: 20px;
-background: white;
-border: 1px solid var(--border-color);
-border-radius: 16px;
-display: flex;
-align-items: center;
-gap: 16px;
-box-shadow: var(--shadow-sm);
-transition: all 0.3s ease;
-}
-
-.selected-file:hover {
-border-color: var(--primary-color);
-box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1);
-}
-
-.file-icon {
-width: 48px;
-height: 48px;
-background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(99, 102, 241, 0.05));
-border-radius: 12px;
-display: flex;
-align-items: center;
-justify-content: center;
-color: var(--primary-color);
-}
-
-.file-details {
-flex: 1;
-}
-
-.file-name {
-font-weight: 600;
-color: var(--text-primary);
-margin-bottom: 4px;
-font-size: 16px;
-}
-
-.file-size {
-font-size: 13px;
-color: var(--text-secondary);
-}
-
-/* 处理按钮 */
-.action-buttons {
-margin-top: 32px;
-display: grid;
-grid-template-columns: 1fr 1fr;
-gap: 16px;
-}
-
-.process-btn {
-height: auto !important;
-padding: 24px !important;
-border-radius: 16px !important;
-border: none !important;
-transition: all 0.3s ease !important;
-box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.parse-btn {
-background: var(--primary-gradient) !important;
-color: white !important;
-}
-
-.parse-btn:hover:not(:disabled) {
-transform: translateY(-4px);
-box-shadow: 0 12px 32px rgba(99, 102, 241, 0.4) !important;
-}
-
-.generate-btn {
-background: linear-gradient(
-    135deg,
-    var(--success-color),
-    var(--success-light)
-) !important;
-color: white !important;
-}
-
-.generate-btn:hover:not(:disabled) {
-transform: translateY(-4px);
-box-shadow: 0 12px 32px rgba(16, 185, 129, 0.4) !important;
-}
-
-.process-btn:disabled {
-opacity: 0.5;
-cursor: not-allowed;
-transform: none !important;
-box-shadow: none !important;
-}
-
-.btn-content {
-display: flex;
-align-items: center;
-gap: 16px;
-}
-
-.btn-icon {
-width: 48px;
-height: 48px;
-background: rgba(255, 255, 255, 0.2);
-border-radius: 12px;
-display: flex;
-align-items: center;
-justify-content: center;
-backdrop-filter: blur(10px);
-}
-
-.btn-text {
-text-align: left;
-color: white;
-}
-
-.btn-title {
-font-size: 18px;
-font-weight: 700;
-margin-bottom: 4px;
-}
-
-.btn-subtitle {
-font-size: 13px;
-opacity: 0.9;
-font-weight: 500;
-}
-
-/* 状态卡片 */
-.status-card .card-header {
-background: linear-gradient(
-    135deg,
-    rgba(59, 130, 246, 0.05) 0%,
-    rgba(59, 130, 246, 0.02) 100%
-);
-}
-
-.status-list {
-display: flex;
-flex-direction: column;
-gap: 20px;
-}
-
-.status-item {
-display: flex;
-align-items: flex-start;
-gap: 16px;
-padding: 20px;
-background: white;
-border: 1px solid var(--border-color);
-border-radius: 16px;
-transition: all 0.3s ease;
-}
-
-.status-item.active {
-border-color: var(--primary-color);
-box-shadow: 0 4px 16px rgba(99, 102, 241, 0.15);
-}
-
-.status-icon {
-flex-shrink: 0;
-}
-
-.icon-wrapper {
-width: 48px;
-height: 48px;
-border-radius: 12px;
-display: flex;
-align-items: center;
-justify-content: center;
-font-size: 24px;
-}
-
-.icon-wrapper.info {
-background: rgba(59, 130, 246, 0.1);
-color: var(--info-color);
-}
-
-.icon-wrapper.success {
-background: rgba(16, 185, 129, 0.1);
-color: var(--success-color);
-}
-
-.icon-wrapper.error {
-background: rgba(239, 68, 68, 0.1);
-color: var(--danger-color);
-}
-
-.status-content {
-flex: 1;
-}
-
-.status-title {
-display: flex;
-align-items: center;
-gap: 12px;
-margin-bottom: 8px;
-}
-
-.status-title span {
-font-weight: 600;
-color: var(--text-primary);
-font-size: 16px;
-}
-
-.status-desc {
-font-size: 14px;
-color: var(--text-secondary);
-line-height: 1.5;
-}
-
-.status-divider {
-height: 1px;
-background: linear-gradient(90deg, transparent, var(--border-color), transparent);
-margin: 0 20px;
-}
-
-/* 知识图谱卡片 */
-.graph-content {
-width: 100%;
-border-radius: 16px;
-overflow: hidden;
-background: #f8fafc;
-}
-
-.graph-container {
-width: 100%;
-height: 400px;
-}
-
-.graph-placeholder {
-width: 100%;
-height: 100%;
-display: flex;
-align-items: center;
-justify-content: center;
-background: linear-gradient(135deg, #f8fafc, #f1f5f9);
-}
-
-.placeholder-content {
-text-align: center;
-}
-
-.placeholder-icon {
-margin-bottom: 20px;
-}
-
-.placeholder-text p {
-margin: 0;
-color: var(--text-secondary);
-font-size: 14px;
-font-weight: 500;
-}
-
-/* 知识图谱表格 */
-.graph-table-view {
-height: 100%;
-display: flex;
-flex-direction: column;
-}
-
-.custom-tabs {
-flex: 1;
-display: flex;
-flex-direction: column;
-}
-
-.custom-tabs :deep(.el-tabs__header) {
-margin: 0;
-flex-shrink: 0;
-}
-
-.custom-tabs :deep(.el-tabs__nav-wrap) {
-padding: 0 24px;
-}
-
-.custom-tabs :deep(.el-tabs__item) {
-font-weight: 600;
-padding: 0 24px;
-}
-
-.custom-tabs :deep(.el-tabs__content) {
-flex: 1;
-padding: 0;
-overflow: hidden;
-}
-
-.table-container {
-padding: 16px 24px;
-height: 100%;
-overflow: auto;
-}
-
-:deep(.el-table) {
-border-radius: 12px;
-overflow: hidden;
-border: 1px solid var(--border-color);
-}
-
-:deep(.el-table__header) {
-background: linear-gradient(135deg, #f8fafc, #f1f5f9);
-}
-
-:deep(.el-table th) {
-background: transparent;
-color: var(--text-primary);
-font-weight: 700;
-border-bottom: 1px solid var(--border-color);
-}
-
-:deep(.el-table__row) {
-transition: background-color 0.2s ease;
-}
-
-:deep(.el-table__row:hover) {
-background-color: rgba(99, 102, 241, 0.05);
-}
-
-.node-id {
-font-family: "JetBrains Mono", "Courier New", monospace;
-font-size: 12px;
-color: var(--text-secondary);
-font-weight: 600;
-}
-
-.type-tag {
-border-radius: 8px;
-font-weight: 600;
-padding: 4px 10px;
-}
-
-.relation-cell {
-display: flex;
-align-items: center;
-gap: 12px;
-padding: 4px 0;
-}
-
-.relation-source,
-.relation-target {
-padding: 6px 12px;
-background: linear-gradient(135deg, #f8fafc, #f1f5f9);
-border-radius: 8px;
-font-size: 13px;
-font-weight: 600;
-color: var(--text-primary);
-flex: 1;
-text-align: center;
-overflow: hidden;
-text-overflow: ellipsis;
-white-space: nowrap;
-}
-
-.relation-arrow {
-width: 32px;
-display: flex;
-align-items: center;
-justify-content: center;
-color: var(--primary-color);
-}
-
-.properties {
-font-size: 12px;
-color: var(--text-secondary);
-overflow: hidden;
-text-overflow: ellipsis;
-white-space: nowrap;
-padding: 4px 8px;
-background: rgba(99, 102, 241, 0.05);
-border-radius: 6px;
-}
-
-/* 测试用例卡片 */
-.case-stats {
-display: flex;
-gap: 20px;
-margin-top: 4px;
-}
-
-.stat-item {
-text-align: center;
-min-width: 60px;
-}
-
-.stat-value {
-font-size: 24px;
-font-weight: 800;
-color: var(--primary-color);
-margin-bottom: 4px;
-}
-
-.stat-label {
-font-size: 12px;
-color: var(--text-secondary);
-font-weight: 600;
-text-transform: uppercase;
-letter-spacing: 0.5px;
-}
-
-.export-btn {
-background: linear-gradient(
-    135deg,
-    var(--success-color),
-    var(--success-light)
-) !important;
-border: none !important;
-color: white !important;
-font-weight: 600 !important;
-box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3) !important;
-}
-
-.export-btn:hover:not(:disabled) {
-transform: translateY(-2px);
-box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4) !important;
-}
-
-.export-btn:disabled {
-opacity: 0.5;
-cursor: not-allowed;
-transform: none !important;
-box-shadow: none !important;
-}
-
-/* JSON视图 */
-.json-view-container {
-height: 100%;
-display: flex;
-flex-direction: column;
-}
-
-.json-view {
-border-radius: 16px;
-overflow: hidden;
-border: 1px solid var(--border-color);
-height: 100%;
-display: flex;
-flex-direction: column;
-}
-
-.json-header {
-padding: 16px 24px;
-background: linear-gradient(135deg, #f8fafc, #f1f5f9);
-border-bottom: 1px solid var(--border-color);
-display: flex;
-justify-content: space-between;
-align-items: center;
-flex-shrink: 0;
-}
-
-.json-title {
-display: flex;
-align-items: center;
-gap: 12px;
-font-weight: 600;
-color: var(--text-primary);
-font-size: 16px;
-}
-
-.json-content {
-background: #1e293b;
-color: #e2e8f0;
-padding: 24px;
-font-family: "JetBrains Mono", "Courier New", monospace;
-font-size: 13px;
-line-height: 1.6;
-flex: 1;
-overflow: auto;
-}
-
-.json-content pre {
-margin: 0;
-}
-
-.json-content code {
-font-family: inherit;
-}
-
-/* 表格视图 */
-.table-view-container {
-height: 100%;
-display: flex;
-flex-direction: column;
-}
-
-.table-view {
-height: 100%;
-display: flex;
-flex-direction: column;
-}
-
-.table-container {
-flex: 1;
-padding: 0;
-overflow: hidden;
-}
-
-.table-container :deep(.el-table) {
-height: 100%;
-}
-
-.case-id {
-font-family: "JetBrains Mono", "Courier New", monospace;
-font-size: 12px;
-color: var(--text-secondary);
-font-weight: 600;
-}
-
-.case-name {
-font-weight: 600;
-color: var(--text-primary);
-font-size: 14px;
-overflow: hidden;
-text-overflow: ellipsis;
-white-space: nowrap;
-}
-
-.priority-badge {
-display: inline-block;
-padding: 6px 12px;
-border-radius: 20px;
-font-size: 12px;
-font-weight: 700;
-text-align: center;
-min-width: 50px;
-letter-spacing: 0.5px;
-}
-
-.priority-badge.高 {
-background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(239, 68, 68, 0.1));
-color: var(--danger-color);
-border: 1px solid rgba(239, 68, 68, 0.2);
-}
-
-.priority-badge.中 {
-background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(245, 158, 11, 0.1));
-color: var(--warning-color);
-border: 1px solid rgba(245, 158, 11, 0.2);
-}
-
-.priority-badge.低 {
-background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(16, 185, 129, 0.1));
-color: var(--success-color);
-border: 1px solid rgba(16, 185, 129, 0.2);
-}
-
-.status-badge {
-display: inline-block;
-padding: 6px 12px;
-border-radius: 20px;
-font-size: 12px;
-font-weight: 700;
-text-align: center;
-min-width: 60px;
-letter-spacing: 0.5px;
-}
-
-.status-badge.未执行 {
-background: linear-gradient(
-    135deg,
-    rgba(100, 116, 139, 0.15),
-    rgba(100, 116, 139, 0.1)
-);
-color: #64748b;
-border: 1px solid rgba(100, 116, 139, 0.2);
-}
-
-.status-badge.通过 {
-background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(16, 185, 129, 0.1));
-color: var(--success-color);
-border: 1px solid rgba(16, 185, 129, 0.2);
-}
-
-.status-badge.失败 {
-background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(239, 68, 68, 0.1));
-color: var(--danger-color);
-border: 1px solid rgba(239, 68, 68, 0.2);
-}
-
-/* 空状态 */
-.empty-state {
-padding: 60px 24px;
-text-align: center;
-display: flex;
-flex-direction: column;
-align-items: center;
-justify-content: center;
-height: 100%;
-background: linear-gradient(135deg, #f8fafc, #f1f5f9);
-border-radius: 16px;
-}
-
-.empty-icon {
-margin-bottom: 24px;
-opacity: 0.5;
-}
-
-.empty-text h4 {
-margin: 0 0 12px;
-color: var(--text-primary);
-font-size: 18px;
-font-weight: 700;
-}
-
-.empty-text p {
-margin: 0;
-color: var(--text-secondary);
-font-size: 14px;
-max-width: 300px;
-line-height: 1.5;
-}
-
-/* 详情对话框 */
-.detail-dialog :deep(.el-dialog) {
-border-radius: 20px;
-overflow: hidden;
-border: 1px solid var(--border-color);
-}
-
-.detail-dialog :deep(.el-dialog__header) {
-padding: 24px;
-border-bottom: 1px solid var(--border-light);
-margin: 0;
-background: linear-gradient(
-    135deg,
-    rgba(99, 102, 241, 0.05) 0%,
-    rgba(99, 102, 241, 0.02) 100%
-);
-}
-
-.detail-dialog :deep(.el-dialog__body) {
-padding: 0;
-}
-
-.detail-content {
-padding: 24px;
-}
-
-.detail-header {
-margin-bottom: 24px;
-padding-bottom: 20px;
-border-bottom: 1px solid var(--border-light);
-}
-
-.detail-title h3 {
-margin: 0 0 12px;
-color: var(--text-primary);
-font-size: 22px;
-font-weight: 700;
-line-height: 1.4;
-}
-
-.detail-meta {
-display: flex;
-align-items: center;
-gap: 16px;
-}
-
-.detail-id {
-font-family: "JetBrains Mono", "Courier New", monospace;
-font-size: 13px;
-color: var(--text-secondary);
-padding: 4px 12px;
-background: rgba(99, 102, 241, 0.05);
-border-radius: 6px;
-}
-
-.detail-priority {
-padding: 6px 16px;
-border-radius: 20px;
-font-size: 13px;
-font-weight: 700;
-letter-spacing: 0.5px;
-}
-
-.detail-priority.高 {
-background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(239, 68, 68, 0.1));
-color: var(--danger-color);
-border: 1px solid rgba(239, 68, 68, 0.2);
-}
-
-.detail-priority.中 {
-background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(245, 158, 11, 0.1));
-color: var(--warning-color);
-border: 1px solid rgba(245, 158, 11, 0.2);
-}
-
-.detail-priority.低 {
-background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(16, 185, 129, 0.1));
-color: var(--success-color);
-border: 1px solid rgba(16, 185, 129, 0.2);
-}
-
-.detail-section {
-margin-bottom: 24px;
-}
-
-.detail-section h4 {
-margin: 0 0 12px;
-color: var(--text-primary);
-font-size: 16px;
-font-weight: 700;
-display: flex;
-align-items: center;
-gap: 8px;
-}
-
-.detail-section h4::before {
-content: "";
-display: block;
-width: 4px;
-height: 16px;
-background: var(--primary-color);
-border-radius: 2px;
-}
-
-.detail-section p {
-margin: 0;
-color: var(--text-secondary);
-line-height: 1.6;
-font-size: 14px;
-padding-left: 12px;
-}
-
-.steps-list {
-display: flex;
-flex-direction: column;
-gap: 16px;
-}
-
-.step-item {
-display: flex;
-gap: 16px;
-}
-
-.step-number {
-width: 32px;
-height: 32px;
-background: var(--primary-gradient);
-color: white;
-border-radius: 50%;
-display: flex;
-align-items: center;
-justify-content: center;
-font-size: 14px;
-font-weight: 700;
-flex-shrink: 0;
-box-shadow: 0 4px 8px rgba(99, 102, 241, 0.3);
-}
-
-.step-content {
-flex: 1;
-padding: 16px;
-background: #f8fafc;
-border-radius: 12px;
-border: 1px solid var(--border-light);
-}
-
-.step-action {
-color: var(--text-primary);
-margin-bottom: 8px;
-font-size: 14px;
-font-weight: 600;
-line-height: 1.5;
-}
-
-.step-expected {
-font-size: 13px;
-color: var(--text-secondary);
-line-height: 1.5;
-padding-top: 8px;
-border-top: 1px solid var(--border-color);
-}
-
-.step-expected span {
-font-weight: 600;
-color: var(--primary-color);
-}
-
-.detail-footer {
-margin-top: 24px;
-padding-top: 20px;
-border-top: 1px solid var(--border-light);
-}
-
-.detail-info {
-display: flex;
-flex-direction: column;
-gap: 12px;
-}
-
-.info-item {
-display: flex;
-align-items: center;
-gap: 12px;
-font-size: 14px;
-}
-
-.info-label {
-font-weight: 600;
-color: var(--text-primary);
-min-width: 80px;
-}
-
-.info-value {
-color: var(--text-secondary);
-font-weight: 500;
-}
-
-.info-value.未执行 {
-color: #64748b;
-}
-
-.info-value.通过 {
-color: var(--success-color);
-font-weight: 600;
-}
-
-.info-value.失败 {
-color: var(--danger-color);
-font-weight: 600;
-}
-
-/* 底部信息 */
-.bottom-info {
-max-width: 1400px;
-margin: 0 auto;
-padding: 20px 24px 24px;
-text-align: center;
-border-top: 1px solid var(--border-light);
-background: rgba(255, 255, 255, 0.7);
-}
-
-.bottom-info p {
-margin: 0;
-font-size: 13px;
-color: var(--text-secondary);
-font-weight: 500;
-letter-spacing: 0.3px;
-}
-
-/* 响应式设计 */
-@media (max-width: 1200px) {
-.content-wrapper {
-    grid-template-columns: 1fr;
-}
-
-.action-buttons {
-    grid-template-columns: 1fr;
-}
-
-.graph-container {
-    height: 400px;
-}
-}
-
-@media (max-width: 768px) {
-.nav-content {
-    padding: 0 16px;
-}
-
-.process-steps-container {
-    padding: 16px 16px 32px;
-}
-
-.steps-header {
-    padding: 20px 24px;
-}
-
-.steps-wrapper {
-    padding: 32px 24px;
-}
-
-.steps-track {
-    margin: 0 10px;
-}
-
-.step-circle {
-    width: 48px;
-    height: 48px;
-}
-
-.step-number {
-    font-size: 16px;
-}
-
-.step-label {
+.tcgen-page {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 24px 0 48px;
+}
+
+/* 进度步骤 */
+.progress-bar-section {
+    margin-bottom: 24px;
+    padding: 20px 28px;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.06);
+}
+
+.progress-steps {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+}
+
+.progress-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.step-dot {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     font-size: 14px;
+    font-weight: 600;
+    background: #f1f5f9;
+    color: #94a3b8;
+    border: 2px solid #e2e8f0;
+    transition: all .3s;
 }
 
-.step-desc {
-    font-size: 12px;
+.progress-step.current .step-dot {
+    background: #fff;
+    border-color: #6366f1;
+    color: #6366f1;
 }
 
-.content-wrapper {
-    padding: 0 16px 32px;
-    gap: 16px;
-}
-
-.card-header {
-    padding: 20px;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-}
-
-.header-actions {
-    width: 100%;
-    justify-content: flex-end;
-}
-
-.case-stats {
-    justify-content: space-between;
-}
-
-.stat-item {
-    min-width: 50px;
-}
-
-.stat-value {
-    font-size: 20px;
-}
-
-.graph-container {
-    height: 300px;
-}
-
-.detail-dialog :deep(.el-dialog) {
-    width: 90% !important;
-    max-width: 500px;
-}
-}
-
-@media (max-width: 480px) {
-.steps-track {
-    flex-direction: column;
-    gap: 40px;
-    margin: 0;
-}
-
-.steps-track::before {
-    top: 0;
-    left: 30px;
-    right: auto;
-    width: 4px;
-    height: 100%;
-}
-
-.progress-bar {
-    top: 0;
-    left: 30px;
-    width: 4px;
-    height: auto;
-}
-
-.step-item {
-    flex-direction: row;
-    width: 100%;
-    align-items: flex-start;
-}
-
-.step-circle {
-    margin-bottom: 0;
-    margin-right: 16px;
+.progress-step.done .step-dot {
+    background: #10b981;
+    border-color: #10b981;
+    color: #fff;
 }
 
 .step-text {
-    text-align: left;
+    font-size: 13px;
+    color: #94a3b8;
+    font-weight: 500;
+}
+
+.progress-step.current .step-text { color: #6366f1; }
+.progress-step.done .step-text { color: #10b981; }
+
+.progress-line {
     flex: 1;
+    height: 2px;
+    background: #e2e8f0;
+    margin: 0 12px;
+    margin-bottom: 26px;
+    transition: background .3s;
 }
 
-.step-label {
-    margin-bottom: 4px;
+.progress-line.active { background: #10b981; }
+
+/* 卡片 */
+.card {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.06);
+    margin-bottom: 20px;
+    overflow: hidden;
 }
 
-.step-desc {
-    max-width: none;
-    text-align: left;
-}
-
-.action-buttons {
-    gap: 12px;
-}
-
-.process-btn {
-    padding: 20px !important;
-}
-
-.btn-icon {
-    width: 40px;
-    height: 40px;
-}
-
-.btn-title {
+.card-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     font-size: 16px;
+    font-weight: 600;
+    color: #1e293b;
+    padding: 18px 24px 0;
 }
 
-.case-stats {
+.card-title-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 18px 24px 0;
+}
+
+.card-body-inner {
+    padding: 16px 24px 24px;
+}
+
+.case-count {
+    font-size: 13px;
+    font-weight: 400;
+    color: #64748b;
+    margin-left: 4px;
+}
+
+.graph-stats {
+    display: flex;
+    gap: 6px;
+}
+
+/* 上传 */
+.upload-area { width: 100%; }
+
+:deep(.el-upload-dragger) {
+    width: 100%;
+    padding: 36px 20px;
+    border: 2px dashed #e2e8f0;
+    border-radius: 10px;
+    transition: border-color .2s;
+}
+
+:deep(.el-upload-dragger:hover) {
+    border-color: #6366f1;
+}
+
+.upload-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    color: #64748b;
+}
+
+.upload-placeholder p {
+    margin: 0;
+    font-size: 14px;
+}
+
+.upload-placeholder em {
+    color: #6366f1;
+    font-style: normal;
+}
+
+.upload-hint {
+    font-size: 12px;
+    color: #94a3b8;
+}
+
+.selected-file-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 12px 0 0;
+    padding: 10px 16px;
+    background: #f8fafc;
+    border-radius: 8px;
+    font-size: 14px;
+}
+
+.selected-file-bar .file-name {
+    font-weight: 500;
+    color: #1e293b;
+}
+
+.selected-file-bar .file-size {
+    color: #94a3b8;
+    font-size: 13px;
+}
+
+.action-row {
+    display: flex;
+    gap: 12px;
+    padding: 16px 24px 20px;
+}
+
+/* 状态行 */
+.status-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
     flex-wrap: wrap;
+}
+
+.status-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    flex: 1;
+    min-width: 240px;
+}
+
+.status-chip.success { background: #ecfdf5; color: #065f46; }
+.status-chip.error { background: #fef2f2; color: #991b1b; }
+.status-chip.info { background: #eff6ff; color: #1e40af; }
+
+.status-chip.warning { background: #fffbeb; color: #92400e; }
+
+/* 空状态 */
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 20px;
+    color: #94a3b8;
     gap: 12px;
 }
 
-.stat-item {
-    min-width: 45px;
+.empty-state p {
+    margin: 0;
+    font-size: 14px;
 }
+
+/* 用例详情 */
+.detail-content {
+    padding: 0 4px;
+}
+
+.detail-name {
+    margin: 0 0 8px;
+    font-size: 18px;
+    color: #1e293b;
+}
+
+.detail-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    font-size: 13px;
+    color: #64748b;
+}
+
+.detail-section {
+    margin-bottom: 16px;
+}
+
+.detail-section h4 {
+    margin: 0 0 6px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #475569;
+}
+
+.detail-section p {
+    margin: 0;
+    font-size: 14px;
+    color: #334155;
+    line-height: 1.6;
+}
+
+.steps-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.step-row {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+}
+
+.step-num {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #f1f5f9;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: #64748b;
+}
+
+.step-body {
+    flex: 1;
+    font-size: 14px;
+    color: #334155;
+    line-height: 1.6;
+}
+
+.step-expected {
+    display: block;
+    font-size: 13px;
+    color: #64748b;
+    margin-top: 2px;
+}
+
+.detail-meta-row {
+    display: flex;
+    gap: 20px;
+    padding-top: 16px;
+    border-top: 1px solid #f1f5f9;
+    font-size: 13px;
+    color: #94a3b8;
 }
 </style>
