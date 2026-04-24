@@ -70,6 +70,8 @@ const handleLogout = () => {
 </script>
 
 <style scoped lang="scss">
+@use "sass:color";
+
 .default-layout {
   min-height: 100vh;
   display: flex;
@@ -135,7 +137,7 @@ const handleLogout = () => {
   transition: background-color 0.3s;
   
   &:hover {
-    background-color: darken($error-color, 10%);
+    background-color: color.adjust($error-color, $lightness: -10%);
   }
 }
 

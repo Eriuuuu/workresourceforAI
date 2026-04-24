@@ -14,7 +14,7 @@ from app.services.ai_code_qa_system.code_parser import HybridCppCodeParser,CppCa
 from app.services.ai_code_qa_system.code_reader import DynamicCodeReader
 from app.services.ai_code_qa_system.retrieval_system import HybridRetrievalSystem
 from app.services.ai_code_qa_system.qa_system import CodeAwareQASystem
-from app.services.ai_code_qa_system.glodon_api_token import get_glodon_token
+from app.core.glodon_api_token import get_glodon_token
 
 
 class LangChainCodeQASystem:

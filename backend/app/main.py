@@ -14,7 +14,7 @@ from app.core.logging import setup_logging
 from app.middleware.logging_middleware import LoggingMiddleware
 from app.core.monitoring import metrics_endpoint,MonitorMiddleware
 from app.databases.mongodb import connect_to_mongo, close_mongo_connection
-from app.api.v1.endpoints import auth, user, health,hackapi,aiagent_api,testcasegen_api
+from app.api.v1.endpoints import auth, user, health, aiagent_api, testcasegen_api
 
 
 setup_logging()
@@ -81,7 +81,6 @@ def create_application() -> FastAPI:
     application.include_router(auth.router, prefix="/api/v1/auth", tags=["authentication"])
     application.include_router(user.router, prefix="/api/v1/user", tags=["user"])
     application.include_router(health.router, prefix="/api/v1", tags=["health"])
-    application.include_router(hackapi.router, prefix="/api/v1/hackapi", tags=["hackapi"])
     application.include_router(aiagent_api.router, prefix="/api/v1/aiagent", tags=["aiagent"])
     application.include_router(testcasegen_api.router, prefix="/api/v1/testcase", tags=["testcase"])
     

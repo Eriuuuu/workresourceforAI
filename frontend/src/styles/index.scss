@@ -1,7 +1,5 @@
 // 全局样式
-@use './variables.scss';
-// @import './mixins.scss';
-// @import './reset.scss';
+// variables.scss 已通过 vite.config.ts 的 additionalData 全局注入
 
 // 工具类
 .container {

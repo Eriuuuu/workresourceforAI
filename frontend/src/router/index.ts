@@ -48,12 +48,6 @@ const router = createRouter({
           name: 'users',
           component: () => import('@/views/UserManagementView.vue'),
           meta: { requiresAuth: true }
-        },
-        {
-          path: 'test11',
-          name: 'test11',
-          component: () => import('@/views/interpolation.vue'),
-          meta: { requiresAuth: true }
         }
       ]
     }
