@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import type { ChatStepInfo } from '@/api/ai'
 
 export interface Message {
   role: 'user' | 'assistant' | 'system'
@@ -11,6 +12,10 @@ export interface Message {
     files_count?: number
     token_usage?: Record<string, number>
     error?: string
+    agent_name?: string
+    agent_role?: string
+    steps?: ChatStepInfo[]
+    agent_chain?: Array<{ role: string; name: string; status: string }>
   }
 }
 
@@ -22,17 +27,12 @@ export const useChatStore = defineStore('chat', () => {
   const initializing = ref(false)
   const initTaskId = ref('')
   const askTaskId = ref('')
-
-  // 保存一个正在进行的请求 Promise，切换页面回来时复用
-  let _pendingRequest: Promise<void> | null = null
-
-  function setPendingRequest(promise: Promise<void> | null) {
-    _pendingRequest = promise
-  }
-
-  function getPendingRequest(): Promise<void> | null {
-    return _pendingRequest
-  }
+  const chatTaskId = ref('')  // 多 Agent 聊天任务 ID
+  const currentAgentName = ref('')  // 当前执行中的 Agent 名称
+  const currentAgentChain = ref<Array<{ role: string; name: string; status: string }>>([])  // Agent 链路
+  const currentSteps = ref<ChatStepInfo[]>([])  // 当前执行的步骤
+  const waitStartTime = ref(0)  // 等待开始时间戳（用于计时器连续性）
+  const initStartTime = ref(0)  // 初始化开始时间戳
 
   function reset() {
     messages.value = []
@@ -42,7 +42,12 @@ export const useChatStore = defineStore('chat', () => {
     initializing.value = false
     initTaskId.value = ''
     askTaskId.value = ''
-    _pendingRequest = null
+    chatTaskId.value = ''
+    currentAgentName.value = ''
+    currentAgentChain.value = []
+    currentSteps.value = []
+    waitStartTime.value = 0
+    initStartTime.value = 0
   }
 
   return {
@@ -53,8 +58,12 @@ export const useChatStore = defineStore('chat', () => {
     initializing,
     initTaskId,
     askTaskId,
-    setPendingRequest,
-    getPendingRequest,
+    chatTaskId,
+    currentAgentName,
+    currentAgentChain,
+    currentSteps,
+    waitStartTime,
+    initStartTime,
     reset,
   }
 })

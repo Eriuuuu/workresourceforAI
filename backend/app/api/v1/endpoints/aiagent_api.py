@@ -1,8 +1,10 @@
-from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, File, UploadFile
+"""
+智能问答系统 API — 独立路由，与用例生成系统解耦
+"""
+from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import JSONResponse
 from typing import Optional, Dict, Any, List
 import uuid
-import json
 import asyncio
 import threading
 import time as _time
@@ -10,18 +12,13 @@ from datetime import datetime
 from loguru import logger
 
 from app.services.ai_code_qa_system.main_system import LangChainCodeQASystem
+from app.services.agents.qa_system_manager import init_qa_system as register_qa_instance
 from app.core.config_for_ai_service import get_config_manager
 from app.models.ai_system_model import (
-    ParseDocumentResponse, TestCaseGenRequest, TestCaseGenResponse,
-    GraphNodeData, GraphEdgeData, TestCaseItem, TestCaseStep,
-    SubmitTaskRequest, SubmitTaskResponse, TaskStatusResponse,
+    SubmitTaskResponse, TaskStatusResponse,
     InitializeRequest, QuestionRequest,
     SessionInfo, SystemStatus, DebugRetrievalRequest, DebugRetrievalResponse,
-)
-from app.services.ai_testcasegen_system.TCGen_base_glodon_llm import GlodonBaseLLM
-from app.services.ai_code_qa_system.glodon_api_token import get_glodon_token
-from app.services.ai_testcasegen_system.TCGen_main import (
-    RequirementKnowledgeGraph, IntegrateGlodonTestcasegenWorkflow, readdocxfile,
+    ChatRequest, ChatStatusResponse, AgentInfo,
 )
 
 
@@ -53,260 +50,7 @@ def _safe_create_task(task_id: str, task_info: Dict[str, Any]):
         _task_store[task_id] = task_info
 
 
-# ==================== 共享业务逻辑（消除重复） ====================
-
-_PRIORITY_MAP = {
-    "高": "高", "中": "中", "低": "低",
-    "High": "高", "Medium": "中", "Low": "低",
-    "P0": "高", "P1": "高", "P2": "中", "P3": "低",
-}
-
-
-def _create_doc_processor() -> RequirementKnowledgeGraph:
-    """创建文档处理器实例（工厂函数，消除重复初始化代码）"""
-    config = get_config_manager()
-    llm_instance = GlodonBaseLLM(config, get_glodon_token())
-    return RequirementKnowledgeGraph(
-        llm_instance,
-        config.db.neo4j_uri,
-        config.db.neo4j_username,
-        config.db.neo4j_password,
-    )
-
-
-def _convert_raw_steps(raw_steps: Any) -> List[Dict[str, str]]:
-    """将后端工作流返回的各种 steps 格式统一为 [{action, expected}]"""
-    steps: List[Dict[str, str]] = []
-    if not raw_steps:
-        return steps
-    # 工作流返回的 testSteps 是带编号的文本字符串（如 "1. xxx\n2. yyy"）
-    if isinstance(raw_steps, str):
-        for line in raw_steps.strip().split("\n"):
-            line = line.strip()
-            if not line:
-                continue
-            # 去掉开头的编号（如 "1. "、"1、"、"Step 1:"）
-            import re
-            cleaned = re.sub(r'^[\d]+[\.\、\)\]:]\s*', '', line).strip()
-            if cleaned:
-                steps.append({"action": cleaned})
-        return steps
-    if not isinstance(raw_steps, list):
-        return steps
-    for step in raw_steps:
-        if isinstance(step, dict):
-            steps.append({
-                "action": step.get("action", step.get("step", "")),
-                "expected": step.get("expected", step.get("expected_result", step.get("expectResult", ""))),
-            })
-        elif isinstance(step, str):
-            steps.append({"action": step})
-    return steps
-
-
-def _convert_case_results(case_results: List[Dict]) -> List[Dict[str, Any]]:
-    """将工作流原始用例结果转换为标准格式（兼容多种字段命名）"""
-    test_cases = []
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    for idx, case in enumerate(case_results):
-        if not isinstance(case, dict):
-            continue
-        raw_priority = str(case.get("priority", case.get("level", "中")))
-        test_cases.append({
-            "id": case.get("testcase_id", case.get("id", f"TC{idx + 1:03d}")),
-            "name": case.get("summary", case.get("name", case.get("title", f"测试用例{idx + 1}"))),
-            "description": case.get("description", case.get("desc", "")),
-            "priority": _PRIORITY_MAP.get(raw_priority, "中"),
-            "preconditions": case.get("preconditions", case.get("pre_condition", "")),
-            "steps": _convert_raw_steps(case.get("testSteps", case.get("steps", case.get("test_steps", [])))),
-            "expected_result": case.get("expectResult", ""),
-            "target_api": case.get("targetAPI", ""),
-            "module": case.get("module", ""),
-            "status": "未执行",
-            "created_at": now_str,
-            "updated_at": now_str,
-        })
-    return test_cases
-
-
-def _build_graph_title(requirement_text: str) -> str:
-    """从需求文本生成文档标题"""
-    title = requirement_text[:100].replace("\n", " ").strip()
-    return title if len(title) >= 10 else "需求文档"
-
-
-def _build_search_keyword(search_keyword: str, requirement_text: str) -> str:
-    """构建图谱检索关键词"""
-    keyword = search_keyword.strip()
-    if keyword:
-        return keyword
-    return requirement_text[:50].replace("\n", " ").strip()
-
-
-def _extract_entities_string(entities: List[Dict]) -> str:
-    """将实体列表拼接为描述字符串，供工作流使用"""
-    descriptions = []
-    for entity in entities:
-        if isinstance(entity, dict):
-            name = entity.get("name", "")
-            desc = entity.get("description", "")
-            if name:
-                descriptions.append(f"{name}: {desc}" if desc else name)
-    return "。".join(descriptions)
-
-
-# ==================== 文档解析 + 图谱构建（共享核心） ====================
-
-_NODE_QUERY = """
-MATCH (d:Document {id: $doc_id})-[:CONTAINS]->(e)
-RETURN e.id as id, e.name as name, e.type as type,
-       e.description as description, labels(e) as labels
-LIMIT 200
-"""
-
-_EDGE_QUERY = """
-MATCH (d:Document {id: $doc_id})-[:CONTAINS]->(e1)-[r]->(e2)
-WHERE exists((d)-[:CONTAINS]->(e2))
-RETURN e1.id as source, e2.id as target, type(r) as label,
-       r.description as description
-LIMIT 300
-"""
-
-
-def _execute_parse_graph(requirement_text: str, search_keyword: str) -> Dict[str, Any]:
-    """
-    核心业务逻辑：解析文档 → 构建图谱 → 读取节点/边。
-    返回 {"success", "message", "graph_nodes", "graph_edges", "processing_time", "error?}
-    """
-    start = _time.time()
-    doc_processor = _create_doc_processor()
-    title = _build_graph_title(requirement_text)
-
-    result = doc_processor.process_requirement_document(title, requirement_text)
-    elapsed = _time.time() - start
-
-    if not result.get("success"):
-        return {
-            "success": False,
-            "message": result.get("error", "文档解析失败"),
-            "graph_nodes": [],
-            "graph_edges": [],
-            "processing_time": elapsed,
-            "error": result.get("error"),
-        }
-
-    # 从图数据库读取节点和边
-    doc_id = result["document_id"]
-    graph_nodes: List[Dict] = []
-    graph_edges: List[Dict] = []
-
-    try:
-        gm = doc_processor.graph_manager
-        for record in gm.graph.run(_NODE_QUERY, doc_id=doc_id).data():
-            labels = record.get("labels", [])
-            graph_nodes.append({
-                "id": record.get("id", ""),
-                "name": record.get("name", ""),
-                "label": labels[0] if labels else "Requirement",
-                "type": record.get("type", "requirement"),
-                "description": record.get("description", ""),
-            })
-
-        for record in gm.graph.run(_EDGE_QUERY, doc_id=doc_id).data():
-            graph_edges.append({
-                "source": record.get("source", ""),
-                "target": record.get("target", ""),
-                "label": record.get("label", "关联"),
-                "properties": {"description": record.get("description", "")},
-            })
-    except Exception as e:
-        logger.warning(f"读取图谱数据失败: {e}")
-
-    return {
-        "success": True,
-        "message": f"文档解析完成，提取 {result.get('entities_count', 0)} 个实体、{result.get('relationships_count', 0)} 个关系",
-        "graph_nodes": graph_nodes,
-        "graph_edges": graph_edges,
-        "processing_time": elapsed,
-    }
-
-
-def _execute_generate_cases(requirement_text: str, search_keyword: str) -> Dict[str, Any]:
-    """
-    核心业务逻辑：检索图谱 → 调用工作流 → 转换用例结果。
-    返回 {"success", "message", "test_cases", "processing_time", "error?}
-    """
-    start = _time.time()
-    doc_processor = _create_doc_processor()
-    keyword = _build_search_keyword(search_keyword, requirement_text)
-
-    research_result = doc_processor.query_related_content(keyword, "search")
-    entities = research_result.get("results", [])
-
-    if not entities:
-        return {
-            "success": False,
-            "message": "图谱中未检索到相关内容，请先解析文档构建知识图谱",
-            "test_cases": [],
-            "processing_time": _time.time() - start,
-        }
-
-    entities_string = _extract_entities_string(entities)
-    token = get_glodon_token()
-    workflow = IntegrateGlodonTestcasegenWorkflow(token, entities)
-    case_results = workflow.excute_test_gen(requirement_text, entities_string)
-    elapsed = _time.time() - start
-
-    if not case_results:
-        return {
-            "success": False,
-            "message": "测试用例生成失败，工作流未返回有效结果",
-            "test_cases": [],
-            "processing_time": elapsed,
-        }
-
-    test_cases = _convert_case_results(case_results)
-    return {
-        "success": True,
-        "message": f"成功生成 {len(test_cases)} 条测试用例",
-        "test_cases": test_cases,
-        "processing_time": elapsed,
-    }
-
-
-# ==================== 后台任务执行（供 submit-task 调用） ====================
-
-def _run_parse_graph_task(task_id: str, requirement_text: str, search_keyword: str):
-    """后台线程：执行文档解析+图谱构建"""
-    try:
-        _safe_update_task(task_id, {"status": "processing"})
-        result = _execute_parse_graph(requirement_text, search_keyword)
-
-        if not result["success"]:
-            _safe_update_task(task_id, {"status": "failed", "error": result.get("error", "文档解析失败")})
-            return
-
-        _safe_update_task(task_id, {"status": "completed", "result": result})
-    except Exception as e:
-        logger.error(f"任务 {task_id} 图谱构建失败: {e}", exc_info=True)
-        _safe_update_task(task_id, {"status": "failed", "error": str(e)})
-
-
-def _run_generate_cases_task(task_id: str, requirement_text: str, search_keyword: str):
-    """后台线程：执行用例生成"""
-    try:
-        _safe_update_task(task_id, {"status": "processing"})
-        result = _execute_generate_cases(requirement_text, search_keyword)
-
-        if not result["success"]:
-            _safe_update_task(task_id, {"status": "failed", "error": result["message"]})
-            return
-
-        _safe_update_task(task_id, {"status": "completed", "result": result})
-    except Exception as e:
-        logger.error(f"任务 {task_id} 用例生成失败: {e}", exc_info=True)
-        _safe_update_task(task_id, {"status": "failed", "error": str(e)})
-
+# ==================== 后台任务执行 ====================
 
 def _run_initialize_task(task_id: str, force_rebuild: bool):
     """后台线程：执行系统初始化"""
@@ -316,6 +60,8 @@ def _run_initialize_task(task_id: str, force_rebuild: bool):
         config = get_config()
         _qa_system_instance = LangChainCodeQASystem(config)
         _qa_system_instance.initialize(force_rebuild=force_rebuild)
+        # 注册到 qa_system_manager，供 qa_agent 获取（解耦循环引用）
+        register_qa_instance(_qa_system_instance)
         system_stats = _qa_system_instance.get_system_status()
         _safe_update_task(task_id, {
             "status": "completed",
@@ -333,7 +79,7 @@ def _run_initialize_task(task_id: str, force_rebuild: bool):
 
 
 def _run_ask_task(task_id: str, question: str, session_id: str):
-    """后台线程：执行AI问答"""
+    """后台线程：执行AI问答（老系统兼容接口）"""
     global _qa_system_instance, _active_sessions
     try:
         _safe_update_task(task_id, {"status": "processing"})
@@ -369,6 +115,69 @@ def _run_ask_task(task_id: str, question: str, session_id: str):
         })
     except Exception as e:
         logger.error(f"问答任务 {task_id} 失败: {e}", exc_info=True)
+        _safe_update_task(task_id, {"status": "failed", "error": str(e)})
+
+
+async def _run_chat_task(task_id: str, message: str, session_id: str, agent_role: Optional[str]):
+    """异步后台任务：执行多 Agent 聊天任务"""
+    try:
+        _safe_update_task(task_id, {"status": "processing"})
+
+        from app.services.agents.base import AgentContext
+        from app.services.agents import get_registry
+        registry = get_registry()
+
+        # 进度回调：将 Agent 的实时步骤写入 task_store，供前端轮询
+        def progress_callback(progress: dict):
+            _safe_update_task(task_id, {
+                "status": "processing",
+                "progress": progress,
+            })
+
+        # 构建 Agent 上下文，注入进度回调
+        context = AgentContext(
+            session_id=session_id or str(uuid.uuid4()),
+            user_message=message,
+        )
+        context._progress_callback = progress_callback
+
+        # 确定目标 Agent
+        if agent_role:
+            target = registry.get(agent_role)
+            if target is None:
+                _safe_update_task(task_id, {"status": "failed", "error": f"Agent '{agent_role}' 不存在"})
+                return
+            result = await target.execute(context)
+        else:
+            router_agent = registry.get("intent_router")
+            if router_agent is None:
+                _safe_update_task(task_id, {"status": "failed", "error": "意图识别 Agent 未注册"})
+                return
+            result = await router_agent.execute(context)
+
+        # 更新会话
+        if session_id and session_id in _active_sessions:
+            _active_sessions[session_id]['last_active'] = datetime.now().isoformat()
+            _active_sessions[session_id]['question_count'] += 1
+
+        # 转换 AgentResult 为任务结果
+        _safe_update_task(task_id, {
+            "status": "completed",
+            "result": {
+                "success": result.success,
+                "answer": result.answer,
+                "agent_role": result.agent_role,
+                "agent_name": result.agent_name,
+                "session_id": context.session_id,
+                "processing_time": result.processing_time,
+                "steps": [s.model_dump() for s in result.steps],
+                "agent_chain": context.agent_chain,
+                "meta": result.meta,
+                "error": result.error,
+            },
+        })
+    except Exception as e:
+        logger.error(f"聊天任务 {task_id} 失败: {e}", exc_info=True)
         _safe_update_task(task_id, {"status": "failed", "error": str(e)})
 
 
@@ -409,11 +218,7 @@ async def initialize_system(request: InitializeRequest):
         "updated_at": now_str,
     })
 
-    t = threading.Thread(
-        target=_run_initialize_task,
-        args=(task_id, request.force_rebuild),
-        daemon=True,
-    )
+    t = threading.Thread(target=_run_initialize_task, args=(task_id, request.force_rebuild), daemon=True)
     t.start()
 
     logger.info(f"初始化任务已提交: task_id={task_id}")
@@ -438,9 +243,9 @@ async def get_initialize_status(task_id: str):
     )
 
 
-@router.post("/ask", response_model=SubmitTaskResponse, summary="提问（后台执行）")
+@router.post("/ask", response_model=SubmitTaskResponse, summary="提问（后台执行，老系统兼容）")
 async def ask_question(request: QuestionRequest):
-    """提交问答任务，后台执行，通过 /ask-status/{task_id} 轮询结果"""
+    """提交问答任务（老系统兼容接口），推荐使用 /chat"""
     if _qa_system_instance is None or not _qa_system_instance.is_initialized:
         raise HTTPException(status_code=503, detail="QA系统未初始化，请先调用/initialize接口")
 
@@ -460,11 +265,7 @@ async def ask_question(request: QuestionRequest):
         "session_id": session_id,
     })
 
-    t = threading.Thread(
-        target=_run_ask_task,
-        args=(task_id, request.question, session_id),
-        daemon=True,
-    )
+    t = threading.Thread(target=_run_ask_task, args=(task_id, request.question, session_id), daemon=True)
     t.start()
 
     logger.info(f"问答任务已提交: task_id={task_id}")
@@ -477,128 +278,6 @@ async def get_ask_status(task_id: str):
     task = _safe_get_task(task_id)
     if not task or task.get("task_type") != "ask":
         raise HTTPException(status_code=404, detail=f"问答任务 {task_id} 不存在或已过期")
-
-    return TaskStatusResponse(
-        task_id=task["task_id"],
-        status=task["status"],
-        task_type=task.get("task_type", ""),
-        result=task.get("result"),
-        error=task.get("error"),
-        created_at=task.get("created_at"),
-        updated_at=task.get("updated_at"),
-    )
-
-
-# ==================== 用例生成系统接口 ====================
-
-@router.post("/getdocx", response_model=ParseDocumentResponse, summary="获取文档")
-async def get_docx(file: UploadFile = File(...)):
-    """解析上传的DOCX文件为文本"""
-    res = await readdocxfile(file)
-    if res and res.get("success"):
-        return ParseDocumentResponse(
-            success=True,
-            raw_content=res.get("raw_content", ""),
-            format=res.get("format", "markdown"),
-            metadata=res.get("metadata", {}),
-        )
-    error_msg = res.get("error", "未知错误") if res else "文件解析失败"
-    return ParseDocumentResponse(success=False, error=error_msg)
-
-
-@router.post("/parse-and-build-graph",
-             response_model=TestCaseGenResponse,
-             summary="解析文档并构建知识图谱（同步）")
-async def parse_and_build_graph(request: TestCaseGenRequest):
-    """同步接口：解析文档 → 构建图谱，通过 asyncio.to_thread 异步执行不阻塞事件循环"""
-    try:
-        result = await asyncio.to_thread(_execute_parse_graph, request.requirement_text, request.search_keyword)
-
-        graph_nodes = [GraphNodeData(**n) for n in result["graph_nodes"]]
-        graph_edges = [GraphEdgeData(**e) for e in result["graph_edges"]]
-
-        return TestCaseGenResponse(
-            success=result["success"],
-            message=result["message"],
-            graph_nodes=graph_nodes,
-            graph_edges=graph_edges,
-            processing_time=result["processing_time"],
-            error=result.get("error"),
-        )
-    except Exception as e:
-        logger.error(f"解析文档构建图谱失败: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"解析失败: {str(e)}")
-
-
-@router.post("/gentestcases",
-             response_model=TestCaseGenResponse,
-             summary="基于知识图谱生成测试用例（同步）")
-async def generate_test_cases(request: TestCaseGenRequest):
-    """同步接口：检索图谱 → 生成用例，通过 asyncio.to_thread 异步执行不阻塞事件循环"""
-    try:
-        result = await asyncio.to_thread(_execute_generate_cases, request.requirement_text, request.search_keyword)
-
-        test_cases = [TestCaseItem(steps=[TestCaseStep(**s) for s in c["steps"]], **{k: v for k, v in c.items() if k != "steps"}) for c in result["test_cases"]]
-
-        return TestCaseGenResponse(
-            success=result["success"],
-            message=result["message"],
-            test_cases=test_cases,
-            processing_time=result["processing_time"],
-        )
-    except Exception as e:
-        logger.error(f"生成测试用例失败: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"用例生成失败: {str(e)}")
-
-
-# ==================== 异步任务接口（推荐使用，支持页签切换） ====================
-
-@router.post("/submit-task",
-             response_model=SubmitTaskResponse,
-             summary="提交异步任务",
-             description="提交文档解析或用例生成任务，后台执行，支持页签切换不中断")
-async def submit_task(request: SubmitTaskRequest):
-    """提交异步任务，立即返回 task_id，前端可轮询状态"""
-    task_id = str(uuid.uuid4())[:8]
-    now_str = datetime.now().isoformat()
-
-    _safe_create_task(task_id, {
-        "task_id": task_id,
-        "task_type": request.task_type,
-        "status": "pending",
-        "result": None,
-        "error": None,
-        "created_at": now_str,
-        "updated_at": now_str,
-    })
-
-    task_funcs = {
-        "parse_graph": (_run_parse_graph_task, "文档解析任务已提交"),
-        "generate_cases": (_run_generate_cases_task, "用例生成任务已提交"),
-    }
-    if request.task_type not in task_funcs:
-        raise HTTPException(status_code=400, detail=f"不支持的任务类型: {request.task_type}")
-
-    func, message = task_funcs[request.task_type]
-    t = threading.Thread(
-        target=func,
-        args=(task_id, request.requirement_text, request.search_keyword),
-        daemon=True,
-    )
-    t.start()
-
-    logger.info(f"异步任务已提交: task_id={task_id}, type={request.task_type}")
-    return SubmitTaskResponse(task_id=task_id, status="pending", message=message)
-
-
-@router.get("/task-status/{task_id}",
-            response_model=TaskStatusResponse,
-            summary="查询任务状态")
-async def get_task_status(task_id: str):
-    """根据 task_id 查询异步任务的执行状态和结果"""
-    task = _safe_get_task(task_id)
-    if not task:
-        raise HTTPException(status_code=404, detail=f"任务 {task_id} 不存在或已过期")
 
     return TaskStatusResponse(
         task_id=task["task_id"],
@@ -734,7 +413,7 @@ async def health_check():
         system_ok = _qa_system_instance is not None and _qa_system_instance.is_initialized
         health_data = {
             "status": "healthy" if system_ok else "unhealthy",
-            "service": "AI智能代理API",
+            "service": "AI智能问答API",
             "timestamp": datetime.now().isoformat(),
             "system_initialized": system_ok,
             "active_sessions": len(_active_sessions),
@@ -765,22 +444,94 @@ async def get_configuration(qa_system: LangChainCodeQASystem = Depends(get_qa_sy
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ==================== 多 Agent 系统接口 ====================
+
+def _get_agent_registry():
+    """延迟导入 Agent 注册中心"""
+    from app.services.agents import get_registry
+    return get_registry()
+
+
+@router.post("/chat", response_model=SubmitTaskResponse, summary="多 Agent 聊天（后台执行）")
+async def chat(request: ChatRequest):
+    """
+    统一聊天入口。
+
+    - 不指定 agent_role 时，自动通过意图识别 Agent 路由到合适的 Agent。
+    - 指定 agent_role 时，直接调用目标 Agent。
+    """
+    task_id = str(uuid.uuid4())[:8]
+    session_id = request.session_id or str(uuid.uuid4())
+    now_str = datetime.now().isoformat()
+
+    _safe_create_task(task_id, {
+        "task_id": task_id,
+        "task_type": "chat",
+        "status": "pending",
+        "result": None,
+        "error": None,
+        "created_at": now_str,
+        "updated_at": now_str,
+        "message": request.message,
+        "session_id": session_id,
+    })
+
+    asyncio.create_task(_run_chat_task(task_id, request.message, session_id, request.agent_role))
+
+    return SubmitTaskResponse(task_id=task_id, status="pending", message="聊天任务已提交")
+
+
+@router.get("/chat-status/{task_id}", response_model=ChatStatusResponse, summary="查询聊天任务状态")
+async def get_chat_status(task_id: str):
+    """查询多 Agent 聊天任务的执行状态（含实时进度）"""
+    task = _safe_get_task(task_id)
+    if not task or task.get("task_type") != "chat":
+        raise HTTPException(status_code=404, detail=f"聊天任务 {task_id} 不存在")
+
+    response = ChatStatusResponse(
+        task_id=task["task_id"],
+        status=task["status"],
+        task_type=task.get("task_type", "chat"),
+        result=task.get("result"),
+        error=task.get("error"),
+        created_at=task.get("created_at"),
+        updated_at=task.get("updated_at"),
+    )
+    # processing 状态时附加实时进度
+    if task["status"] == "processing" and task.get("progress"):
+        response.progress = task["progress"]
+    return response
+
+
+@router.get("/agents", summary="获取 Agent 列表")
+async def list_agents():
+    """获取所有已注册的 Agent 及其状态"""
+    registry = _get_agent_registry()
+    agents = []
+    for info in registry.list_agents():
+        agent = registry.get(info["role"])
+        agents.append(AgentInfo(
+            role=info["role"],
+            name=info["name"],
+            description=info["description"],
+            initialized=agent.is_initialized if agent else False,
+        ).model_dump())
+    return {"agents": agents}
+
+
 @router.get("/", summary="API根路径")
 async def api_root():
     return {
         "name": "AI代码智能问答系统API",
         "version": "1.0.0",
         "endpoints": [
-            {"method": "POST", "path": "/api/v1/aiagent/initialize", "description": "初始化系统（后台执行）"},
+            {"method": "POST", "path": "/api/v1/aiagent/chat", "description": "多 Agent 聊天（自动路由）"},
+            {"method": "GET",  "path": "/api/v1/aiagent/chat-status/{task_id}", "description": "查询聊天任务状态"},
+            {"method": "GET",  "path": "/api/v1/aiagent/agents", "description": "获取 Agent 列表"},
+            {"method": "POST", "path": "/api/v1/aiagent/initialize", "description": "初始化 QA 系统"},
             {"method": "GET",  "path": "/api/v1/aiagent/initialize-status/{task_id}", "description": "查询初始化状态"},
-            {"method": "POST", "path": "/api/v1/aiagent/ask", "description": "提问（后台执行）"},
+            {"method": "POST", "path": "/api/v1/aiagent/ask", "description": "直接提问（旧接口）"},
             {"method": "GET",  "path": "/api/v1/aiagent/ask-status/{task_id}", "description": "查询问答状态"},
-            {"method": "POST", "path": "/api/v1/aiagent/getdocx", "description": "上传解析文档"},
-            {"method": "POST", "path": "/api/v1/aiagent/parse-and-build-graph", "description": "解析文档构建图谱"},
-            {"method": "POST", "path": "/api/v1/aiagent/gentestcases", "description": "生成测试用例"},
-            {"method": "POST", "path": "/api/v1/aiagent/submit-task", "description": "提交异步任务"},
-            {"method": "GET",  "path": "/api/v1/aiagent/task-status/{task_id}", "description": "查询任务状态"},
-            {"method": "GET",  "path": "/api/v1/aiagent/status", "description": "系统状态"},
             {"method": "GET",  "path": "/api/v1/aiagent/health", "description": "健康检查"},
         ],
         "documentation": "/docs",

@@ -248,7 +248,7 @@ class CodeAwareQASystem:
         
         # 初始化LangChain组件
         self.llm = GlodonAIChatModel(
-            model_name=getattr(config.api, 'glodonai_llm_model', 'Aswhlbydjge0c'),
+            model_name=getattr(config.api, 'glodonai_llm_model', 'Azcrc2go7oiyq'),
             api_key=api_token,
             temperature=0.1,
             max_tokens=8000,
@@ -436,7 +436,7 @@ class GlodonBaseLLM:
         
         # 实例化模型
         self.llm = GlodonAIChatModel(
-            model_name=getattr(config.api, 'glodonai_llm_model', 'Aswhlbydjge0c'),
+            model_name=getattr(config.api, 'glodonai_llm_model', 'Azcrc2go7oiyq'),
             api_key=api_token,
             temperature=0.1,
             max_tokens=8000,

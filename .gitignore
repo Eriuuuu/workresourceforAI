@@ -52,4 +52,5 @@ dist-ssr/
 backend/prometheus_data/
 backend/chroma_db/
 *.db
+*.sqlite3
 output_*.json

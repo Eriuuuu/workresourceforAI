@@ -13,7 +13,7 @@ export interface ParseDocResult {
     heading_count?: number
     total_characters?: number
     total_words?: number
-    file_name?: string
+    file_name?: number
     file_size?: number
   }
   error?: string
@@ -78,11 +78,12 @@ export interface TaskStatusResponse {
 }
 
 // ==================== API 方法 ====================
+// 路由已迁移到独立的 /api/v1/testcase/ 前缀
 
-export const AIApi = {
+export const testcaseApi = {
   /** 上传 DOCX 并解析为文本 */
   async loaddocxfile(formData: FormData): Promise<ParseDocResult> {
-    return apiClient.post('/aiagent/getdocx', formData, {
+    return apiClient.post('/testcase/getdocx', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
       timeout: 30000,
     })
@@ -90,7 +91,7 @@ export const AIApi = {
 
   /** 提交异步任务（解析图谱或生成用例），后台执行，支持页签切换不中断 */
   async submitTask(taskType: 'parse_graph' | 'generate_cases', requirementText: string, searchKeyword?: string): Promise<SubmitTaskResponse> {
-    return apiClient.post('/aiagent/submit-task', {
+    return apiClient.post('/testcase/submit-task', {
       task_type: taskType,
       requirement_text: requirementText,
       search_keyword: searchKeyword || '',
@@ -99,6 +100,6 @@ export const AIApi = {
 
   /** 查询异步任务状态 */
   async getTaskStatus(taskId: string): Promise<TaskStatusResponse> {
-    return apiClient.get(`/aiagent/task-status/${taskId}`, { timeout: 10000 })
+    return apiClient.get(`/testcase/task-status/${taskId}`, { timeout: 10000 })
   },
 }

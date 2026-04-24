@@ -67,7 +67,16 @@
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a4 4 0 014 4v2a4 4 0 01-8 0V6a4 4 0 014-4z"/><path d="M16 14H8a6 6 0 00-6 6v1h20v-1a6 6 0 00-6-6z"/></svg>
             </div>
             <div class="msg-content">
+              <div v-if="msg.meta?.agent_name" class="agent-tag">{{ msg.meta.agent_name }}</div>
               <div class="msg-text" v-html="renderMd(msg.content)"></div>
+              <!-- 执行步骤 -->
+              <div v-if="msg.meta?.steps?.length" class="step-chain">
+                <div v-for="(s, si) in msg.meta.steps" :key="si" class="step-item" :class="s.status">
+                  <span class="step-dot"></span>
+                  <span class="step-name">{{ s.step_name }}</span>
+                  <span class="step-detail">{{ s.detail }}</span>
+                </div>
+              </div>
               <div v-if="msg.meta" class="msg-footer">
                 <span v-if="msg.meta.processing_time" class="meta-tag">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
@@ -115,7 +124,28 @@
               <div class="thinking-dots">
                 <span></span><span></span><span></span>
               </div>
-              <span class="thinking-text">{{ thinkingTip }}</span>
+              <div class="thinking-info">
+                <span class="thinking-text">{{ thinkingTip }}</span>
+                <!-- Agent 链路 -->
+                <div v-if="chatStore.currentAgentChain.length > 0" class="thinking-chain">
+                  <div
+                    v-for="(chain, ci) in chatStore.currentAgentChain" :key="ci"
+                    class="chain-item" :class="chain.status"
+                  >
+                    <span class="chain-dot"></span>
+                    <span>{{ chain.name }}</span>
+                    <svg v-if="ci < chatStore.currentAgentChain.length - 1" class="chain-arrow" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                  </div>
+                </div>
+                <!-- 步骤详情 -->
+                <div v-if="chatStore.currentSteps.length > 0" class="thinking-steps">
+                  <div v-for="(s, si) in chatStore.currentSteps" :key="si" class="thinking-step" :class="s.status">
+                    <span class="step-dot-sm"></span>
+                    <span class="step-text">{{ s.step_name }}</span>
+                    <span v-if="s.detail" class="step-detail-inline">{{ s.detail }}</span>
+                  </div>
+                </div>
+              </div>
               <span class="thinking-timer">{{ waitElapsed }}s</span>
             </div>
           </div>
@@ -153,15 +183,12 @@
 
 <script setup lang="ts">
 import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
-import { aiApi, type AskStatusResponse } from '@/api/ai'
+import { aiApi, type ChatStatusResponse } from '@/api/ai'
 import { useChatStore } from '@/stores/chat'
 
 const chatStore = useChatStore()
 
-// 组件本地状态
 const inputText = ref('')
-
-// 从 store 读取全局状态（切换页面后保留）
 const messages = computed(() => chatStore.messages)
 const loading = computed(() => chatStore.loading)
 const initializing = computed(() => chatStore.initializing)
@@ -170,26 +197,25 @@ const systemReady = computed(() => chatStore.systemReady)
 const scrollEl = ref<HTMLElement | null>(null)
 const inputEl = ref<HTMLTextAreaElement | null>(null)
 
-// 等待计时
-const waitElapsed = ref(0)
-const initElapsed = ref(0)
-let waitTimer: ReturnType<typeof setInterval> | null = null
-let initTimer: ReturnType<typeof setInterval> | null = null
 let initPollTimer: ReturnType<typeof setInterval> | null = null
-let askPollTimer: ReturnType<typeof setInterval> | null = null
+let chatPollTimer: ReturnType<typeof setInterval> | null = null
+let _timerHandle: ReturnType<typeof setInterval> | null = null
 
-// 思考提示语循环
-const thinkingTips = [
-  '正在分析你的问题...',
-  '正在检索代码库...',
-  '正在构建上下文...',
-  'AI 正在思考中...',
-  '即将生成回答...',
-]
-const tipIdx = ref(0)
-let tipInterval: ReturnType<typeof setInterval> | null = null
+// 响应式计时器：通过 tick 驱动 computed 重新计算
+const _timerTick = ref(0)
 
-const thinkingTip = computed(() => thinkingTips[tipIdx.value % thinkingTips.length])
+const waitElapsed = computed(() => {
+  // _timerTick 作为响应式依赖，每秒 tick++ 会触发重新计算
+  const _t = _timerTick.value
+  if (!chatStore.waitStartTime) return 0
+  return Math.floor((Date.now() - chatStore.waitStartTime) / 1000)
+})
+
+const initElapsed = computed(() => {
+  const _t = _timerTick.value
+  if (!chatStore.initStartTime) return 0
+  return Math.floor((Date.now() - chatStore.initStartTime) / 1000)
+})
 
 const initStatus = ref('正在初始化 AI 系统，加载代码库并构建索引...')
 
@@ -199,23 +225,29 @@ const systemStatus = computed(() => {
   return 'idle'
 })
 
-const canSend = computed(() => !!inputText.value.trim() && !chatStore.loading && !chatStore.initializing && chatStore.systemReady)
+// 多 Agent 系统始终可用（LlmAgent 和 ModelingAgent 不需要初始化）
+// systemReady 仅控制 QA Agent
+const canSend = computed(() => !!inputText.value.trim() && !chatStore.loading && !chatStore.initializing)
 
 const inputPlaceholder = computed(() => {
-  if (chatStore.initializing) return '系统初始化中，请稍候...'
-  if (!chatStore.systemReady) return '请先初始化系统'
   if (chatStore.loading) return '等待 AI 回复中...'
-  return '输入你的问题，按 Enter 发送...'
+  return '输入你的问题，按 Enter 发送（自动识别意图）...'
 })
 
 const suggestions = [
   '这个项目的整体架构是什么？',
+  '帮我建一个两层框架结构，4根柱子2根梁',
+  '帮我写一首关于编程的诗',
   '用户认证是如何实现的？',
-  '数据库连接的配置方式？',
-  'API 接口的认证机制是什么？',
 ]
 
 // --- 工具函数 ---
+
+const thinkingTip = computed(() => {
+  const agentName = chatStore.currentAgentName
+  if (agentName) return `${agentName} 正在处理...`
+  return '正在识别意图...'
+})
 
 const scrollBottom = async () => {
   await nextTick()
@@ -243,39 +275,41 @@ const renderMd = (text: string) => {
     .replace(/\n/g, '<br>')
 }
 
-// --- 计时器 ---
+// --- 计时器（computed + tick 驱动，保证响应式） ---
 
-const startWaitTimer = () => {
-  waitElapsed.value = 0
-  tipIdx.value = 0
-  waitTimer = setInterval(() => { waitElapsed.value++ }, 1000)
-  tipInterval = setInterval(() => { tipIdx.value++ }, 4000)
+const _ensureTimer = () => {
+  if (!_timerHandle) {
+    _timerHandle = setInterval(() => { _timerTick.value++ }, 1000)
+  }
 }
 
-const stopWaitTimer = () => {
-  if (waitTimer) { clearInterval(waitTimer); waitTimer = null }
-  if (tipInterval) { clearInterval(tipInterval); tipInterval = null }
+const startWaitTimer = () => {
+  chatStore.waitStartTime = Date.now()
+  _ensureTimer()
 }
 
 const startInitTimer = () => {
-  initElapsed.value = 0
-  initTimer = setInterval(() => { initElapsed.value++ }, 1000)
+  chatStore.initStartTime = Date.now()
+  _ensureTimer()
+}
+
+const stopWaitTimer = () => {
+  chatStore.waitStartTime = 0
+  if (!chatStore.initStartTime && _timerHandle) {
+    clearInterval(_timerHandle)
+    _timerHandle = null
+  }
 }
 
 const stopInitTimer = () => {
-  if (initTimer) { clearInterval(initTimer); initTimer = null }
-}
-
-// --- 核心操作 ---
-
-const checkSystem = async () => {
-  try {
-    const res = await aiApi.healthCheck()
-    chatStore.systemReady = res.system_initialized
-  } catch {
-    chatStore.systemReady = false
+  chatStore.initStartTime = 0
+  if (!chatStore.waitStartTime && _timerHandle) {
+    clearInterval(_timerHandle)
+    _timerHandle = null
   }
 }
+
+// --- 初始化（QA Agent 专用） ---
 
 const handleInit = async () => {
   chatStore.initializing = true
@@ -284,22 +318,19 @@ const handleInit = async () => {
   startInitTimer()
 
   try {
-    const res = await aiApi.initialize({ force_rebuild: false })
+    const res = await aiApi.initialize({ force_rebuild:false})
     chatStore.initTaskId = res.task_id
-    initStatus.value = '正在初始化 AI 系统，加载代码库并构建索引...'
+    initStatus.value = '正在初始化知识库，加载代码库并构建索引...'
     startInitPolling(res.task_id)
   } catch (err: any) {
     const detail = err.response?.data?.detail || err.message || '提交初始化任务失败'
     chatStore.messages.push({ role: 'system', content: `初始化异常：${detail}`, type: 'error' })
-    chatStore.systemReady = false
     chatStore.initializing = false
     chatStore.initTaskId = ''
     stopInitTimer()
     scrollBottom()
   }
 }
-
-// --- 初始化轮询 ---
 
 const POLL_INTERVAL = 3000
 
@@ -312,37 +343,30 @@ const startInitPolling = (taskId: string) => {
 const pollInitStatus = async (taskId: string) => {
   try {
     const status = await aiApi.getInitializeStatus(taskId)
-
     if (status.status === 'processing') {
-      initStatus.value = 'AI 系统正在加载代码库并构建索引，请耐心等待...'
+      initStatus.value = '正在加载代码库并构建索引，请耐心等待...'
     } else if (status.status === 'completed') {
       stopInitPolling()
       chatStore.initializing = false
       chatStore.initTaskId = ''
       chatStore.systemReady = true
       if (status.result?.message) {
-        chatStore.messages.push({ role: 'system', content: `系统初始化完成 — ${status.result.message}`, type: 'success' })
+        chatStore.messages.push({ role: 'system', content: `知识库初始化完成 — ${status.result.message}`, type: 'success' })
       }
       scrollBottom()
     } else if (status.status === 'failed') {
       stopInitPolling()
       chatStore.initializing = false
       chatStore.initTaskId = ''
-      chatStore.systemReady = false
-      const errorMsg = status.error || '未知错误'
-      chatStore.messages.push({ role: 'system', content: `初始化失败：${errorMsg}`, type: 'error' })
+      chatStore.messages.push({ role: 'system', content: `初始化失败：${status.error || '未知错误'}`, type: 'error' })
       scrollBottom()
     }
-  } catch (err: any) {
-    const httpStatus = err.response?.status
-    if (httpStatus === 404) {
-      stopInitPolling()
-      chatStore.initializing = false
-      chatStore.initTaskId = ''
-      chatStore.systemReady = false
-      chatStore.messages.push({ role: 'system', content: '初始化任务已丢失（服务可能已重启），请重新初始化。', type: 'error' })
-      scrollBottom()
-    }
+  } catch {
+    stopInitPolling()
+    chatStore.initializing = false
+    chatStore.initTaskId = ''
+    chatStore.messages.push({ role: 'system', content: '初始化任务已丢失，请重新初始化。', type: 'error' })
+    scrollBottom()
   }
 }
 
@@ -351,144 +375,167 @@ const stopInitPolling = () => {
   stopInitTimer()
 }
 
-const handleSend = async () => {
-  const question = inputText.value.trim()
-  if (!question || chatStore.loading || !chatStore.systemReady) return
+// --- 发送消息（多 Agent） ---
 
-  chatStore.messages.push({ role: 'user', content: question })
+const handleSend = async () => {
+  const message = inputText.value.trim()
+  if (!message || chatStore.loading) return
+
+  chatStore.messages.push({ role: 'user', content: message })
   inputText.value = ''
   if (inputEl.value) inputEl.value.style.height = 'auto'
   chatStore.loading = true
-  chatStore.askTaskId = ''
+  chatStore.chatTaskId = ''
+  chatStore.currentAgentName = ''
+  chatStore.currentAgentChain = []
+  chatStore.currentSteps = []
   startWaitTimer()
   scrollBottom()
 
   try {
-    const res = await aiApi.ask({
-      question,
+    const res = await aiApi.chat({
+      message,
       session_id: chatStore.sessionId || undefined,
     })
-    chatStore.askTaskId = res.task_id
-    startAskPolling(res.task_id)
+    chatStore.chatTaskId = res.task_id
+    startChatPolling(res.task_id)
   } catch (err: any) {
-    const code = err.code || err.response?.status
-    const detail = err.response?.data?.detail || ''
-
-    if (code === 503 || detail.includes('未初始化')) {
-      chatStore.systemReady = false
-      chatStore.messages.push({ role: 'system', content: 'AI 系统已离线，请重新初始化。', type: 'error' })
-    } else {
-      chatStore.messages.push({
-        role: 'system',
-        content: `提交问题失败：${detail || err.message || '网络错误'}`,
-        type: 'error',
-      })
-    }
+    const detail = err.response?.data?.detail || err.message || '网络错误'
+    chatStore.messages.push({ role: 'system', content: `发送失败：${detail}`, type: 'error' })
     chatStore.loading = false
-    chatStore.askTaskId = ''
+    chatStore.chatTaskId = ''
     stopWaitTimer()
     scrollBottom()
   }
 }
 
-// --- 问答轮询 ---
+// --- 聊天轮询 ---
 
-const startAskPolling = (taskId: string) => {
-  stopAskPolling()
-  pollAskStatus(taskId)
-  askPollTimer = setInterval(() => pollAskStatus(taskId), POLL_INTERVAL)
+const startChatPolling = (taskId: string) => {
+  stopChatPolling()
+  pollChatStatus(taskId)
+  chatPollTimer = setInterval(() => pollChatStatus(taskId), POLL_INTERVAL)
 }
 
-const pollAskStatus = async (taskId: string) => {
+const pollChatStatus = async (taskId: string) => {
   try {
-    const status: AskStatusResponse = await aiApi.getAskStatus(taskId)
+    const status: ChatStatusResponse = await aiApi.getChatStatus(taskId)
+
+    // 更新中间状态（实时进度）
+    if (status.status === 'processing') {
+      const progress = status.progress as any
+      if (progress) {
+        if (progress.agent_chain?.length) {
+          chatStore.currentAgentChain = progress.agent_chain
+          const lastChain = progress.agent_chain[progress.agent_chain.length - 1]
+          chatStore.currentAgentName = lastChain.name || ''
+        }
+        if (progress.steps?.length) {
+          chatStore.currentSteps = progress.steps
+        }
+      } else {
+        const result = status.result as any
+        if (result?.agent_chain?.length) {
+          chatStore.currentAgentChain = result.agent_chain
+          const lastChain = result.agent_chain[result.agent_chain.length - 1]
+          chatStore.currentAgentName = lastChain.name || ''
+        }
+        if (result?.steps?.length) {
+          chatStore.currentSteps = result.steps
+        }
+      }
+    }
 
     if (status.status === 'completed' && status.result) {
-      stopAskPolling()
+      stopChatPolling()
       chatStore.loading = false
-      chatStore.askTaskId = ''
+      chatStore.chatTaskId = ''
+      chatStore.currentAgentName = ''
+      chatStore.currentAgentChain = []
+      chatStore.currentSteps = []
       chatStore.sessionId = status.result.session_id
 
       if (status.result.success) {
         chatStore.messages.push({
           role: 'assistant',
-          content: status.result.answer || '（未生成回答内容）',
+          content: status.result.answer || '（未生成回答）',
           meta: {
             processing_time: status.result.processing_time,
-            source_files: status.result.source_files,
-            files_count: status.result.files_count,
-            token_usage: status.result.token_usage,
+            agent_name: status.result.agent_name,
+            agent_role: status.result.agent_role,
+            steps: status.result.steps,
+            agent_chain: status.result.agent_chain,
+            source_files: status.result.meta?.source_files,
+            files_count: status.result.meta?.files_count,
           },
         })
       } else {
         chatStore.messages.push({
           role: 'assistant',
-          content: status.result.error || '回答失败，请重试',
-          meta: { processing_time: status.result.processing_time, error: status.result.error },
+          content: status.result.error || '处理失败，请重试',
+          meta: {
+            processing_time: status.result.processing_time,
+            agent_name: status.result.agent_name,
+            agent_role: status.result.agent_role,
+            error: status.result.error,
+          },
         })
       }
       scrollBottom()
     } else if (status.status === 'failed') {
-      stopAskPolling()
+      stopChatPolling()
       chatStore.loading = false
-      chatStore.askTaskId = ''
-      const errorMsg = status.error || '未知错误'
-      chatStore.messages.push({ role: 'system', content: `问答失败：${errorMsg}`, type: 'error' })
+      chatStore.chatTaskId = ''
+      chatStore.currentAgentName = ''
+      chatStore.currentAgentChain = []
+      chatStore.currentSteps = []
+      chatStore.messages.push({ role: 'system', content: `处理失败：${status.error || '未知错误'}`, type: 'error' })
       scrollBottom()
     }
-  } catch (err: any) {
-    const httpStatus = err.response?.status
-    if (httpStatus === 404) {
-      stopAskPolling()
-      chatStore.loading = false
-      chatStore.askTaskId = ''
-      chatStore.messages.push({ role: 'system', content: '问答任务已丢失（服务可能已重启），请重新提问。', type: 'error' })
-      scrollBottom()
-    }
+  } catch {
+    stopChatPolling()
+    chatStore.loading = false
+    chatStore.chatTaskId = ''
+    chatStore.currentAgentName = ''
+    chatStore.currentAgentChain = []
+    chatStore.currentSteps = []
+    chatStore.messages.push({ role: 'system', content: '任务已丢失（服务可能已重启），请重新发送。', type: 'error' })
+    scrollBottom()
   }
 }
 
-const stopAskPolling = () => {
-  if (askPollTimer) { clearInterval(askPollTimer); askPollTimer = null }
+const stopChatPolling = () => {
+  if (chatPollTimer) { clearInterval(chatPollTimer); chatPollTimer = null }
   stopWaitTimer()
 }
 
-const handleClear = async () => {
-  try { await aiApi.clearHistory() } catch { /* ignore */ }
+const handleClear = () => {
   chatStore.reset()
 }
 
 onMounted(() => {
-  // 仅首次挂载时检查系统状态
-  if (!chatStore.systemReady) {
-    checkSystem()
+  // 恢复计时器（时间戳在 store 中保留，重启 interval 即可）
+  if (chatStore.waitStartTime || chatStore.initStartTime) {
+    _ensureTimer()
   }
 
-  // 如果切回来时仍在等待回复，恢复问答轮询
-  if (chatStore.loading && chatStore.askTaskId) {
-    startWaitTimer()
-    startAskPolling(chatStore.askTaskId)
-  } else if (chatStore.loading) {
-    startWaitTimer()
+  // 恢复聊天轮询
+  if (chatStore.loading && chatStore.chatTaskId) {
+    startChatPolling(chatStore.chatTaskId)
   }
 
-  // 如果切回来时初始化仍在进行，恢复轮询
+  // 恢复初始化轮询
   if (chatStore.initializing && chatStore.initTaskId) {
-    startInitTimer()
     startInitPolling(chatStore.initTaskId)
-  } else if (chatStore.initializing) {
-    startInitTimer()
   }
 
-  // 恢复滚动位置
   nextTick(() => scrollBottom())
 })
 
 onUnmounted(() => {
-  // 导航离开时停计时器和轮询，后台任务继续运行
-  stopWaitTimer()
   stopInitPolling()
-  stopAskPolling()
+  stopChatPolling()
+  if (_timerHandle) { clearInterval(_timerHandle); _timerHandle = null }
 })
 </script>
 
@@ -811,14 +858,21 @@ onUnmounted(() => {
 /* --- 思考中 --- */
 .thinking-block {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.6rem;
   padding: 0.5rem 0;
+  min-height: 40px;
 }
 
 .thinking-dots {
   display: flex;
   gap: 3px;
+  padding-top: 4px;
+}
+
+.thinking-info {
+  flex: 1;
+  min-width: 0;
 }
 
 .thinking-dots span {
@@ -841,13 +895,162 @@ onUnmounted(() => {
 .thinking-text {
   font-size: 0.85rem;
   color: #9ca3af;
+  display: block;
 }
 
+/* --- Agent 链路 --- */
+.thinking-chain {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.3rem;
+  flex-wrap: wrap;
+}
+
+.chain-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  font-size: 0.72rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 6px;
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.chain-item.completed {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.chain-item.running {
+  background: #fef3c7;
+  color: #92400e;
+  animation: pulse-bg 1.5s infinite;
+}
+
+.chain-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.chain-arrow {
+  color: #d1d5db;
+  flex-shrink: 0;
+}
+
+@keyframes pulse-bg {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.thinking-steps {
+  margin-top: 0.35rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.thinking-step {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+
+.thinking-step.running { color: #6b7280; }
+.thinking-step.completed { color: #15803d; }
+.thinking-step.failed { color: #b91c1c; }
+
+.step-dot-sm {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+.step-text {
+  flex-shrink: 0;
+  font-weight: 500;
+}
+
+.step-detail-inline {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #b0b0b8;
+  font-size: 0.7rem;
+}
+
+.thinking-step.running .step-dot-sm { animation: pulse-dot 1s infinite; }
+
 .thinking-timer {
-  margin-left: auto;
   font-size: 0.75rem;
   color: #d1d5db;
   font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  padding-top: 4px;
+}
+
+/* --- Agent 标签 --- */
+.agent-tag {
+  display: inline-block;
+  font-size: 0.7rem;
+  color: #6366f1;
+  background: #eef2ff;
+  padding: 0.1rem 0.5rem;
+  border-radius: 10px;
+  margin-bottom: 0.3rem;
+  font-weight: 500;
+}
+
+/* --- 步骤链路 --- */
+.step-chain {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background: #f9fafb;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.step-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+.step-item.completed { color: #15803d; }
+.step-item.failed { color: #b91c1c; }
+
+.step-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #d1d5db;
+  flex-shrink: 0;
+}
+
+.step-item.completed .step-dot { background: #22c55e; }
+.step-item.failed .step-dot { background: #ef4444; }
+
+.step-name {
+  font-weight: 500;
+  min-width: 70px;
+}
+
+.step-detail {
+  color: #9ca3af;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ========== 输入区 ========== */

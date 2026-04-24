@@ -56,19 +56,30 @@ class CppDocumentProcessor:
         """加载单个文件并分割"""
         relative_path = str(file_path.relative_to(self.codebase_path))
         
+        # 先读取文件统计信息
+        try:
+            content_for_stats = file_path.read_text(encoding='utf-8', errors='ignore')
+            total_lines = content_for_stats.count('\n') + 1
+            file_size = file_path.stat().st_size
+        except Exception:
+            total_lines = 0
+            file_size = 0
+        
         try:
             # 使用LangChain的TextLoader
             loader = TextLoader(str(file_path), encoding='utf-8', autodetect_encoding=True)
             documents = loader.load()
             
-            # 为每个文档添加元数据
+            # 为每个文档添加元数据（包含文件统计信息）
             for doc in documents:
                 doc.metadata.update({
                     'file_path': relative_path,
                     'file_name': file_path.name,
                     'file_type': 'cpp',
                     'source_type': 'code_file',
-                    'content_hash': hashlib.md5(doc.page_content.encode()).hexdigest()
+                    'content_hash': hashlib.md5(doc.page_content.encode()).hexdigest(),
+                    'total_lines': total_lines,
+                    'file_size': file_size,
                 })
             
             # 分割文档
@@ -95,7 +106,9 @@ class CppDocumentProcessor:
                         'file_name': file_path.name,
                         'file_type': 'cpp',
                         'source_type': 'code_file',
-                        'content_hash': hashlib.md5(doc.page_content.encode()).hexdigest()
+                        'content_hash': hashlib.md5(doc.page_content.encode()).hexdigest(),
+                        'total_lines': total_lines,
+                        'file_size': file_size,
                     })
                 
                 split_docs = self.text_splitter.split_documents(documents)

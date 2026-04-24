@@ -100,7 +100,57 @@ export interface AiHealthResponse {
     version: string
 }
 
+// ==================== 多 Agent 接口 ====================
+
+export interface ChatRequest {
+    message: string
+    session_id?: string
+    agent_role?: string
+}
+
+export interface ChatStepInfo {
+    step_name: string
+    status: 'pending' | 'running' | 'completed' | 'failed'
+    detail: string
+}
+
+export interface ChatResult {
+    success: boolean
+    answer: string
+    agent_role: string
+    agent_name: string
+    session_id: string
+    processing_time: number
+    steps: ChatStepInfo[]
+    agent_chain: Array<{ role: string; name: string; status: string }>
+    meta: Record<string, any>
+    error?: string
+}
+
+export interface ChatStatusResponse {
+    task_id: string
+    status: 'pending' | 'processing' | 'completed' | 'failed'
+    task_type: string
+    result: ChatResult | null
+    error: string | null
+    created_at?: string
+    updated_at?: string
+    // processing 状态时的实时进度
+    progress?: {
+        steps: ChatStepInfo[]
+        agent_chain: Array<{ role: string; name: string; status: string }>
+    } | null
+}
+
+export interface AgentInfo {
+    role: string
+    name: string
+    description: string
+    initialized: boolean
+}
+
 export const aiApi = {
+    // ---- 旧接口（兼容保留） ----
     initialize(data?: InitializeRequest): Promise<InitializeSubmitResponse> {
         return request('post', '/aiagent/initialize', data || { force_rebuild: true })
     },
@@ -123,5 +173,18 @@ export const aiApi = {
 
     clearHistory(): Promise<{ success: boolean; message: string }> {
         return request('post', '/aiagent/clear')
-    }
+    },
+
+    // ---- 多 Agent 新接口 ----
+    chat(data: ChatRequest): Promise<InitializeSubmitResponse> {
+        return request('post', '/aiagent/chat', data)
+    },
+
+    getChatStatus(taskId: string): Promise<ChatStatusResponse> {
+        return request('get', `/aiagent/chat-status/${taskId}`)
+    },
+
+    listAgents(): Promise<{ agents: AgentInfo[] }> {
+        return request('get', '/aiagent/agents')
+    },
 }

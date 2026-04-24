@@ -1,47 +1,61 @@
-from prometheus_client import Counter, Histogram, generate_latest, REGISTRY,Gauge
+from prometheus_client import Counter, Histogram, generate_latest, REGISTRY, Gauge, CollectorRegistry
 from fastapi import Response,Request
 import time
 from loguru import logger
 from functools import wraps
 from starlette.middleware.base import BaseHTTPMiddleware
 
-# 定义Prometheus指标
-
-
-#HTTP请求计数器
-REQUEST_COUNT=Counter(
+# 定义Prometheus指标（使用 try/except 防止热加载时重复注册崩溃）
+_PROMETHEUS_NAMES = [
     'http_requests_total',
-    'Total HTTP Requests',
-    ['method', 'endpoint', 'status_code']
-)
-# 请求持续时间直方图
-REQUEST_DURATION = Histogram(
     'http_request_duration_seconds',
-    'HTTP Request Duration',
-    ['method', 'endpoint'],
-    buckets=[0.1, 0.5, 1.0, 2.0, 5.0, 10.0]  # 自定义时间分桶
-)
-
-# 数据库操作计数器
-DB_OPERATION_COUNT = Counter(
     'database_operations_total',
-    'Total Database Operations',
-    ['operation', 'collection', 'status']
-)
-
-# 数据库操作耗时直方图
-DB_OPERATION_DURATION = Histogram(
     'database_operation_duration_seconds',
-    'Database Operation Duration',
-    ['operation', 'collection'],
-    buckets=[0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0]
-)
-
-# 活跃请求数指标
-ACTIVE_REQUESTS = Gauge(
     'http_requests_active',
-    'Active HTTP Requests'
-)
+]
+
+# 检测是否已有指标（热加载时模块被重新 import 但 REGISTRY 仍是同一个）
+def _metric_exists(name: str) -> bool:
+    for collector in REGISTRY._names_to_collectors.values():
+        if hasattr(collector, '_name') and collector._name == name:
+            return True
+    return False
+
+if _metric_exists('http_requests_total'):
+    # 热加载：复用已有指标，避免 ValueError: Duplicated timeseries
+    REQUEST_COUNT = REGISTRY._names_to_collectors.get('http_requests_total')
+    REQUEST_DURATION = REGISTRY._names_to_collectors.get('http_request_duration_seconds')
+    DB_OPERATION_COUNT = REGISTRY._names_to_collectors.get('database_operations_total')
+    DB_OPERATION_DURATION = REGISTRY._names_to_collectors.get('database_operation_duration_seconds')
+    ACTIVE_REQUESTS = REGISTRY._names_to_collectors.get('http_requests_active')
+else:
+    # 首次加载：创建指标
+    REQUEST_COUNT = Counter(
+        'http_requests_total',
+        'Total HTTP Requests',
+        ['method', 'endpoint', 'status_code']
+    )
+    REQUEST_DURATION = Histogram(
+        'http_request_duration_seconds',
+        'HTTP Request Duration',
+        ['method', 'endpoint'],
+        buckets=[0.1, 0.5, 1.0, 2.0, 5.0, 10.0]
+    )
+    DB_OPERATION_COUNT = Counter(
+        'database_operations_total',
+        'Total Database Operations',
+        ['operation', 'collection', 'status']
+    )
+    DB_OPERATION_DURATION = Histogram(
+        'database_operation_duration_seconds',
+        'Database Operation Duration',
+        ['operation', 'collection'],
+        buckets=[0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0]
+    )
+    ACTIVE_REQUESTS = Gauge(
+        'http_requests_active',
+        'Active HTTP Requests'
+    )
 
 
 async def metrics_endpoint(request:Request):

@@ -13,7 +13,7 @@ from app.services.ai_code_qa_system.graph_store import GraphDatabaseManager
 from app.services.ai_code_qa_system.code_parser import HybridCppCodeParser,CppCallGraphAnalyzer
 from app.services.ai_code_qa_system.code_reader import DynamicCodeReader
 from app.services.ai_code_qa_system.retrieval_system import HybridRetrievalSystem
-from app.services.ai_code_qa_system.qa_system import CodeAwareQASystem,GlodonBaseLLM
+from app.services.ai_code_qa_system.qa_system import CodeAwareQASystem
 from app.services.ai_code_qa_system.glodon_api_token import get_glodon_token
 
 
@@ -85,7 +85,6 @@ class LangChainCodeQASystem:
                 # 构建图数据库索引
                 logger.info("步骤 2/2: 构建图数据库索引")
                 entities = self.code_parser.parse_codebase_entities()
-                print(json.dumps(entities, ensure_ascii=False, indent=2))
                 graph_stats = self.graph_store.build_code_graph(entities)
                 
                 self.system_stats.update({
@@ -233,30 +232,4 @@ class LangChainCodeQASystem:
         self.initialize(force_rebuild=True)
         logger.info("✓ 索引重建完成")
 
-
-
-class GlodonTestcasesGenerater:
-    """测试用例辅助生成系统 - 主系统集成"""
-    
-    def __init__(self, config):
-        self.config = config
-        self.llm_system = None
-        self.is_initialized = False
-        
-
-    def initialize(self):
-        self.config.validate()
-        self.llm_system = GlodonBaseLLM(
-            self.config,
-            get_glodon_token()
-        )
-        self.is_initialized = True
-
-
-    def ask_llm_question(self,question:str) -> Dict[str,Any]:
-        if not self.is_initialized:
-            self.initialize()
-
-        result = self.llm_system.ask_question(question)
-        return result
 

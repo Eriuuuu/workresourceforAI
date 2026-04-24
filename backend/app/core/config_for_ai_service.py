@@ -10,8 +10,8 @@ class APISettings(BaseSettings):
     glodonai_api_secret: str = Field(default="1X51L2RULJuTGyY0x18uss1p", env ="GLODONAI_API_SECRET")
     glodonai_host: Optional[str] = Field(default="https://copilot.glodon.com", env ="GLODONAI_HOST")
     glodonai_get_token_url: Optional[str] = Field(default="https://copilot.glodon.com/api/auth/v1/access-token", env ="GLODONAI_GET_TOKEN_URL")
-    glodonai_llm_url: Optional[str] = Field(default="https://copilot.glodon.com/api/cvforce/aishop/v1/chat/completions", env ="GLODONAI_LLM_URL")
-    glodonai_llm_model: Optional[str] = Field(default="Aswhlbydjge0c", env ="GLODONAI_LLM_MODEL")
+    glodonai_llm_url: Optional[str] = Field(default="https://copilot.glodon.com/api/cvforce/aishop/v1/chat/completions", env ="GLODONAI_LLM_URL") 
+    glodonai_llm_model: Optional[str] = Field(default="Azcrc2go7oiyq", env ="GLODONAI_LLM_MODEL")
     glodonai_embedding_url: str = Field(default="https://copilot.glodon.com/api/cvforce/aishop/v1/embeddings", env="GLODONAI_EMBEDDING_URL")
 
 class DatabaseSettings(BaseSettings):

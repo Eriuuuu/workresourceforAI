@@ -144,3 +144,36 @@ class TaskStatusResponse(BaseModel):
     error: Optional[str] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
+
+# ==================== 多 Agent 系统模型 ====================
+
+class AgentInfo(BaseModel):
+    """Agent 信息"""
+    role: str = ""
+    name: str = ""
+    description: str = ""
+    initialized: bool = False
+
+class StepInfo(BaseModel):
+    """步骤状态"""
+    step_name: str = ""
+    status: str = "pending"  # pending / running / completed / failed
+    detail: str = ""
+
+class ChatRequest(BaseModel):
+    """多 Agent 统一聊天请求"""
+    message: str = Field(..., min_length=1, max_length=2000, description="用户消息")
+    session_id: Optional[str] = Field(None, description="会话ID")
+    agent_role: Optional[str] = Field(None, description="指定 Agent（不填则自动识别意图）")
+
+class ChatStatusResponse(BaseModel):
+    """聊天任务状态响应"""
+    task_id: str
+    status: str
+    task_type: str = "chat"
+    result: Optional[Dict[str, Any]] = None
+    error: Optional[str] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+    # processing 状态时的实时进度（steps + agent_chain）
+    progress: Optional[Dict[str, Any]] = None

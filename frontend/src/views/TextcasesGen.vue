@@ -249,7 +249,7 @@ import {
     Grid,
     View,
 } from "@element-plus/icons-vue";
-import { AIApi, type GraphNode, type GraphEdge, type TaskStatusResponse } from '@/api/testcasegen';
+import { testcaseApi, type GraphNode, type GraphEdge, type TaskStatusResponse } from '@/api/testcasegen';
 
 declare global {
     interface Window { __lastParsedContent?: string }
@@ -350,7 +350,7 @@ export default {
             for (const task of taskIds) {
                 if (!componentMounted || !pollingActive) return;
                 try {
-                    const status: TaskStatusResponse = await AIApi.getTaskStatus(task.id);
+                    const status: TaskStatusResponse = await testcaseApi.getTaskStatus(task.id);
                     if (!componentMounted || !pollingActive) return;
                     await handleTaskResult(task.type, status);
                     if (!componentMounted || !pollingActive) return;
@@ -494,7 +494,7 @@ export default {
                 formData.append('filename', selectedFile.value.name);
                 formData.append('uploadTime', new Date().toISOString());
 
-                const docResult = await AIApi.loaddocxfile(formData);
+                const docResult = await testcaseApi.loaddocxfile(formData);
                 if (!componentMounted) return;
                 if (!docResult.success) throw new Error(docResult.error || "文档解析失败");
 
@@ -504,7 +504,7 @@ export default {
                 sessionStorage.setItem(PARSED_CONTENT_KEY, rawContent);
                 window.__lastParsedContent = rawContent;
 
-                const taskResult = await AIApi.submitTask('parse_graph', rawContent);
+                const taskResult = await testcaseApi.submitTask('parse_graph', rawContent);
                 if (!componentMounted) return;
                 if (!taskResult.task_id) throw new Error("提交任务失败");
 
@@ -534,7 +534,7 @@ export default {
 
             try {
                 const requirementText = sessionStorage.getItem(PARSED_CONTENT_KEY) || window.__lastParsedContent || "";
-                const taskResult = await AIApi.submitTask('generate_cases', requirementText);
+                const taskResult = await testcaseApi.submitTask('generate_cases', requirementText);
                 if (!componentMounted) return;
                 if (!taskResult.task_id) throw new Error("提交任务失败");
 
