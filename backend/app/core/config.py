@@ -52,6 +52,9 @@ class Settings(BaseSettings):
     # API配置
     API_V1_STR: str = Field(default="/api/v1", env="API_V1_STR")
 
+    # 本地工具遥测上报密钥（为空时不校验，仅建议开发环境使用）
+    TOOLBOX_API_KEY: str = Field(default="", env="TOOLBOX_API_KEY")
+
     class Config:
         env_file = _ENV_FILE
         case_sensitive = True

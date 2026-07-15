@@ -3,6 +3,7 @@ import os
 import socket
 import threading
 import time
+import uuid
 from pathlib import Path
 
 from tester_toolbox.config.settings import (
@@ -124,6 +125,14 @@ class ToolboxLog:
                 except OSError:
                     pass
 
+    def _enqueue_telemetry(self, entry: dict):
+        try:
+            from tester_toolbox.core.telemetry import telemetry_uploader
+
+            telemetry_uploader.enqueue(entry)
+        except Exception:
+            pass
+
     def record(
         self,
         feature,
@@ -136,6 +145,7 @@ class ToolboxLog:
         action="run",
     ):
         entry = {
+            "event_id": str(uuid.uuid4()),
             "time": now_text(),
             "hostname": self.hostname,
             "source": source,
@@ -153,6 +163,7 @@ class ToolboxLog:
             with self._log_file_for_today().open("a", encoding="utf-8") as file:
                 file.write(line + "\n")
         self._maybe_cleanup_old_logs()
+        self._enqueue_telemetry(entry)
 
     def operation(self, feature, input_data=None, source="gui", action="run"):
         return _OperationRecorder(self, feature, input_data, source, action)

@@ -14,7 +14,7 @@ from app.core.logging import setup_logging
 from app.middleware.logging_middleware import LoggingMiddleware
 from app.core.monitoring import metrics_endpoint,MonitorMiddleware
 from app.databases.mongodb import connect_to_mongo, close_mongo_connection
-from app.api.v1.endpoints import auth, user, health, aiagent_api, testcasegen_api
+from app.api.v1.endpoints import auth, user, health, aiagent_api, testcasegen_api, toolbox_telemetry_api
 
 
 setup_logging()
@@ -38,6 +38,9 @@ async def lifespan(app: FastAPI):
         logger.info("异步任务存储已初始化（无残留任务）")
 
     await connect_to_mongo()
+
+    from app.services.toolbox_telemetry_service import ensure_toolbox_events_indexes
+    await ensure_toolbox_events_indexes()
 
     # 注册多 Agent 系统
     from app.services.agents import setup_agents
@@ -83,6 +86,7 @@ def create_application() -> FastAPI:
     application.include_router(health.router, prefix="/api/v1", tags=["health"])
     application.include_router(aiagent_api.router, prefix="/api/v1/aiagent", tags=["aiagent"])
     application.include_router(testcasegen_api.router, prefix="/api/v1/testcase", tags=["testcase"])
+    application.include_router(toolbox_telemetry_api.router, prefix="/api/v1/toolbox", tags=["toolbox"])
     
     # 监控端点
     if settings.ENABLE_METRICS:

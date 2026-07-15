@@ -95,6 +95,11 @@ def get_collection(collection_name: str):
     return get_database()[collection_name]
 
 
+def get_toolbox_events_collection():
+    """获取本地工具使用情况集合"""
+    return get_collection("toolbox_events")
+
+
 # # 正确运行异步函数
 # async def main():
 #     await connect_to_mongo()

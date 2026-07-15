@@ -9,6 +9,7 @@
           <nav class="nav-menu">
             <router-link to="/TextcasesGen" class="nav-link">用例生成</router-link>
             <router-link to="/ai-chat" class="nav-link">智能问答</router-link>
+            <router-link to="/tool-usage" class="nav-link">本地工具使用情况</router-link>
             <router-link to="/users" class="nav-link">用户管理</router-link>
             <router-link to="/profile" class="nav-link">个人资料</router-link>
             <span class="health-badge" :class="healthStatus">{{ healthText }}</span>
