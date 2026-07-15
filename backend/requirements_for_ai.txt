@@ -8,3 +8,4 @@ requests==2.31.0
 sseclient-py==1.8.0
 tiktoken==0.12.0
 clang==20.1.5
+libclang==18.1.1  

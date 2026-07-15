@@ -1,0 +1,4 @@
+open gbmp.tech
+anonymous
+
+Cd ".\GBMP_Test_Files"

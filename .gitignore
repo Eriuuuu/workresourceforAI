@@ -1,9 +1,12 @@
+# ==========================
 # Python
+# ==========================
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
+# Virtual environments
 env/
 venv/
 ENV/
@@ -12,45 +15,118 @@ venv.bak/
 *.egg-info/
 .installed.cfg
 *.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
+# ==========================
 # Node.js
+# ==========================
 node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .npm
 .eslintcache
+.pnpm-debug.log*
 
-# Environment variables (only ignore machine-specific overrides)
+# ==========================
+# Environment variables
+# ==========================
 .env.local
+.env.*.local
 
+# ==========================
 # Logs
+# ==========================
 logs/
 *.log
+*.pid
 
-# IDE - only ignore personal settings, keep shared configs (launch.json, settings.json)
+# ==========================
+# IDE / Editor
+# ==========================
+# VS Code (keep shared workspace configs)
 .vscode/*
 !.vscode/launch.json
 !.vscode/settings.json
 !.vscode/extensions.json
+# IntelliJ / PyCharm
 .idea/
+*.iml
+# Vim / Emacs
 *.swp
 *.swo
+*~
+# Visual Studio
+*.suo
+*.user
 
-# OS
+# ==========================
+# OS generated files
+# ==========================
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
 Thumbs.db
+ehthumbs.db
+Desktop.ini
 
+# ==========================
 # Docker
+# ==========================
 .docker/
+docker-compose.override.yml
 
-# Build output
+# ==========================
+# Build / Output
+# ==========================
 dist/
 dist-ssr/
+build/
+*.o
+*.exe
+*.dll
+*.so
+*.dylib
 
-# Runtime / generated data
+# ==========================
+# Runtime data & databases
+# ==========================
 backend/prometheus_data/
 backend/chroma_db/
+# Databases
 *.db
+*.sqlite
 *.sqlite3
+# Data files (adjust as needed)
+*.json
+*.jsonl
+*.ndjson
+*.yaml
+*.yml
 output_*.json
+output_*.csv
+*.tmp
+*.cache
+
+# ==========================
+# Coverage / Reports
+# ==========================
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+
+# ==========================
+# Misc
+# ==========================
+*.bak
+*.orig
+*.pid
+*.seed
+*.lock
+/backend/chroma_db

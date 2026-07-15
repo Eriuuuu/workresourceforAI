@@ -71,36 +71,56 @@ class AdvancedCppCodeParser:
         self._init_regex_patterns()
     
     def _configure_clang(self):
-        """配置libclang"""
-        # 尝试常见的libclang路径
-        possible_paths = [
-            '/usr/lib/llvm-*/lib/libclang.so',  # Ubuntu
-            '/usr/local/opt/llvm/lib/libclang.dylib',  # macOS Homebrew
-            'C:/Program Files/LLVM/bin/libclang.dll',  # Windows
-            'D:/LLVM/bin/libclang.dll',
-            'C:/LLVM/bin/libclang.dll',
-            '/usr/lib/x86_64-linux-gnu/libclang.so*',  # Linux
-        ]
-        
-        for path_pattern in possible_paths:
-            import glob
-            matches = glob.glob(path_pattern)
-            if matches:
-                clang.cindex.Config.set_library_file(matches[0])
-                self.use_clang = False
-                logger.info(f"找到libclang库: {matches[0]}")
-                return
-        
-        # 如果没有找到，尝试使用环境变量
-        if os.getenv('LIBCLANG_PATH'):
-            clang.cindex.Config.set_library_file(os.getenv('LIBCLANG_PATH'))
+        """配置libclang - 优先使用pip安装的libclang包自带的库"""
+        try:
+            # 尝试直接使用默认加载（pip安装的libclang会自动处理）
+            import clang.cindex
+            # 简单测试一下是否可用
+            _ = clang.cindex.Index.create()
             self.use_clang = True
-            logger.info(f"使用环境变量中的libclang库: {os.getenv('LIBCLANG_PATH')}")
+            logger.info("成功加载libclang（使用默认库加载方式）")
             return
-        
-        # 如果都没有找到，将使用正则表达式模式
-        self.use_clang = False
-        logger.warning("未找到libclang库，使用正则表达式解析")
+        except Exception as e:
+            logger.debug(f"默认加载libclang失败: {e}")
+
+        # 后备：尝试手动指定常见系统路径或环境变量
+        try:
+            import clang.cindex
+            possible_paths = [
+                # Windows
+                'C:/Program Files/LLVM/bin/libclang.dll',
+                'D:/LLVM/bin/libclang.dll',
+                # macOS
+                '/usr/local/opt/llvm/lib/libclang.dylib',
+                # Linux
+                '/usr/lib/llvm-*/lib/libclang.so',
+                '/usr/lib/x86_64-linux-gnu/libclang.so*',
+            ]
+            import glob
+            for pattern in possible_paths:
+                matches = glob.glob(pattern)
+                if matches:
+                    clang.cindex.Config.set_library_file(matches[0])
+                    # 再次测试
+                    _ = clang.cindex.Index.create()
+                    self.use_clang = True
+                    logger.info(f"通过手工路径加载libclang: {matches[0]}")
+                    return
+
+            # 检查环境变量
+            if os.getenv('LIBCLANG_PATH'):
+                clang.cindex.Config.set_library_file(os.getenv('LIBCLANG_PATH'))
+                _ = clang.cindex.Index.create()
+                self.use_clang = True
+                logger.info("通过环境变量LIBCLANG_PATH加载libclang")
+                return
+
+            # 所有方式都失败
+            self.use_clang = False
+            logger.warning("未找到可用的libclang库，将使用正则表达式解析")
+        except Exception as e:
+            self.use_clang = False
+            logger.warning(f"配置libclang时出现异常: {e}，使用正则表达式解析")
     
     def _init_regex_patterns(self):
         """初始化正则表达式模式"""

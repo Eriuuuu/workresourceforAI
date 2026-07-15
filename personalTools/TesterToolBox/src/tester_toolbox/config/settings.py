@@ -1,0 +1,29 @@
+import re
+
+
+MAX_TAIL_LINES = 10000
+DIRECTORY_HISTORY_LIMIT = 15
+LOCATE_HISTORY_LIMIT = 20
+LOCATE_RUN_COUNT_OPTIONS = ("1", "2", "3", "4", "5")
+DEFAULT_LOCATE_TIMEOUT_SECONDS = 360
+APP_TITLE = "TesterToolBox"
+OUTPUT_INTERMEDIATE_DATA = False
+TOOLBOX_LOG_MAX_FIELD_LENGTH = 512
+TOOLBOX_LOG_MAX_LIST_ITEMS = 20
+TOOLBOX_LOG_RETENTION_DAYS = 90
+LOG_UI_MAX_LINES = 2500
+LOG_UI_FLUSH_MS = 120
+
+ERROR_PATTERNS = [
+    {"keyword": "\u4e0d\u76f8\u7b49\u7684\u503c", "errortype": "\u4e0d\u76f8\u7b49\u7684\u503c", "extractParam": "expect1st"},
+    {"keyword": "\u524d\u9762\u8fd8\u6709\u672a\u6bd4\u8f83\u7684\u503c", "errortype": "\u524d\u9762\u8fd8\u6709\u672a\u6bd4\u8f83\u7684\u503c", "extractParam": "first1st"},
+    {"keyword": "\u622a\u56fe\u5bf9\u6bd4", "errortype": "\u622a\u56fe\u5bf9\u6bd4\u5b58\u5728\u5dee\u5f02", "extractParam": None},
+]
+
+PROCESS_CMD_REGEX = re.compile(r'JrnCmd\.ProcessCommand\(\s*"([^"]*)"')
+
+DEFAULT_RUN_TEST_EXE = r"third_party\Setup\RunTestPackage\RunTest_Console.exe"
+RESTRICTED_RIBBON_PASSWORD = "gcmp"
+RESTRICTED_RIBBON_TABS = {"文本工具", "扩展中心"}
+RESTRICTED_RIBBON_LOCKED_ICON = "\u25cf"
+RESTRICTED_RIBBON_UNLOCKED_ICON = "\u2713"
